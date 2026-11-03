@@ -52,14 +52,21 @@ func newVaultKey(_ js.Value, _ []js.Value) any {
 }
 
 func deriveKeys(_ js.Value, args []js.Value) any {
-	if len(args) != 2 {
+	if len(args) != 5 {
 		return promise(func() (js.Value, error) {
-			return js.Undefined(), errors.New("deriveKeys(password, salt) needs 2 args")
+			return js.Undefined(), errors.New("deriveKeys(password, salt, time, memory, parallelism) needs 5 args")
 		})
 	}
-	password, salt := args[0].String(), toBytes(args[1])
+	password := args[0].String()
+	salt := toBytes(args[1])
+	p := crypto.KDFParams{
+		Time:        uint32(args[2].Int()),
+		MemoryKiB:   uint32(args[3].Int()),
+		Parallelism: uint8(args[4].Int()),
+	}
+
 	return promise(func() (js.Value, error) {
-		enc, auth, err := crypto.DeriveKeys(password, salt, params)
+		enc, auth, err := crypto.DeriveKeys(password, salt, p)
 		if err != nil {
 			return js.Undefined(), err
 		}

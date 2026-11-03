@@ -8,6 +8,9 @@ declare global {
       deriveKeys(
         password: string,
         salt: Uint8Array,
+        time: number,
+        memory: number,
+        parallelism: number,
       ): Promise<{ encKey: Uint8Array; authKey: Uint8Array }>;
       newVaultKey(): Promise<Uint8Array>;
     };
@@ -20,12 +23,23 @@ export function loadCrypto(): Promise<void> {
   if (!ready) {
     ready = (async () => {
       const go = new window.Go();
+
       const { instance } = await WebAssembly.instantiateStreaming(
         fetch("/crypto.wasm"),
         go.importObject,
       );
+
       void go.run(instance);
-    })();
+
+      // Wait until Go exposes its JavaScript API.
+      while (!window.vaultCrypto) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    })().catch((error) => {
+      ready = null;
+      throw error;
+    });
   }
+
   return ready;
 }
