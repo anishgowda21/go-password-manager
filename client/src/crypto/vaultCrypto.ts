@@ -41,5 +41,6 @@ export function loadCrypto(): Promise<void> {
     });
   }
 
+  console.log("Wasm loaded.");
   return ready;
 }
