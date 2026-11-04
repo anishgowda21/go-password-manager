@@ -1,71 +1,61 @@
 package main
 
 import (
-	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"log"
 	"net/http"
-
-	"gitlab.com/anishgowda21/go-password-manager/server/internal/database"
 )
 
-const SaltLen = 16
-
-type PreloginRes struct {
-	KdfSettings struct {
-		KdfType     database.KDFType `json:"kdfType"`
-		Iterations  int              `json:"iterations"`
-		Memory      int              `json:"memory"`
-		Parallelism int              `json:"parallelism"`
-	} `json:"kdfSettings"`
-	Salt []byte `json:"salt"`
+type KDFPayload struct {
+	Type        int `json:"type"`
+	Time        int `json:"time"`
+	MemoryKiB   int `json:"memoryKiB"`
+	Parallelism int `json:"parallelism"`
 }
 
-func newSalt() ([]byte, error) {
-	s := make([]byte, SaltLen)
-	if _, err := rand.Read(s); err != nil {
-		return nil, err
-	}
-
-	return s, nil
+type SignupRequest struct {
+	Email           string     `json:"email"`
+	AuthKey         string     `json:"authKey"`
+	WrappedVaultKey string     `json:"wrappedVaultKey"`
+	Salt            string     `json:"salt"`
+	KDF             KDFPayload `json:"kdf"`
 }
 
-func preLogin(w http.ResponseWriter, _ *http.Request) {
-	s, err := newSalt()
+func decodedLen(s string) int {
+	b, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
-		http.Error(w, "failed to generate salt", http.StatusInternalServerError)
+		return -1
+	}
+	return len(b)
+}
+
+func signupHandler(w http.ResponseWriter, r *http.Request) {
+	var req SignupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("signup: bad body: %v", err)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	res := PreloginRes{Salt: s}
-	res.KdfSettings.KdfType = database.KDFArgon2id
-	res.KdfSettings.Iterations = 100_000
-	res.KdfSettings.Memory = 64 * 1024
-	res.KdfSettings.Parallelism = 4
+	log.Printf("signup: email=%q kdf=%+v", req.Email, req.KDF)
+	log.Printf("signup: authKey=%d bytes, wrappedVaultKey=%d bytes, salt=%d bytes",
+		decodedLen(req.AuthKey), decodedLen(req.WrappedVaultKey), decodedLen(req.Salt))
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(res); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
-	}
+	w.WriteHeader(http.StatusCreated)
 }
 
-func withCORS(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+func catchAll(w http.ResponseWriter, r *http.Request) {
+	log.Printf("unhandled: %s %s", r.Method, r.URL.Path)
+	http.NotFound(w, r)
 }
 
 func main() {
-	http.HandleFunc("/api/prelogin", preLogin)
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/signup", signupHandler)
+	mux.HandleFunc("/", catchAll)
 
-	log.Fatal(http.ListenAndServe(":8090", withCORS(http.DefaultServeMux)))
+	addr := ":8090"
+	log.Printf("listening on %s", addr)
+	log.Fatal(http.ListenAndServe(addr, mux))
 }

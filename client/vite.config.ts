@@ -10,4 +10,7 @@ export default defineConfig({
     testTimeout: 60_000,
     hookTimeout: 60_000,
   },
+  server: {
+    proxy: { "/api": "http://localhost:8090" },
+  },
 });

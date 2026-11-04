@@ -26,7 +26,7 @@ type KDFSettings struct {
 	UserID      string
 	KDFType     KDFType
 	Iterations  int
-	Salt        string
+	Salt        string //stored as base64
 	MemoryKiB   *int
 	Parallelism *int
 }

@@ -45,7 +45,6 @@ export const vaultCrypto = {
   ) =>
     call<{ encKey: Uint8Array<ArrayBuffer>; authKey: Uint8Array<ArrayBuffer> }>(
       "deriveKeys",
-      "deriveKeys",
       password,
       salt,
       time,
