@@ -104,3 +104,4 @@ func WrapVaultKey(encKey, vaultKey []byte) ([]byte, error) { return Seal(encKey,
 
 // recovers the vault key on the client after login.
 func UnwrapVaultKey(encKey, wrapped []byte) ([]byte, error) { return Open(encKey, wrapped) }
+

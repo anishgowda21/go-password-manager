@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"syscall/js"
 
 	"gitlab.com/anishgowda21/go-password-manager/wasm/internal/crypto"
@@ -45,7 +46,7 @@ func newVaultKey(_ js.Value, _ []js.Value) any {
 	return promise(func() (js.Value, error) {
 		k, err := crypto.NewVaultKey()
 		if err != nil {
-			return js.Undefined(), err
+			return js.Undefined(), errors.New("cannot produce valut key, error: " + err.Error())
 		}
 		return toJS(k), nil
 	})
@@ -68,7 +69,7 @@ func deriveKeys(_ js.Value, args []js.Value) any {
 	return promise(func() (js.Value, error) {
 		enc, auth, err := crypto.DeriveKeys(password, salt, p)
 		if err != nil {
-			return js.Undefined(), err
+			return js.Undefined(), errors.New("cannot derive keys, error: " + err.Error())
 		}
 		out := js.Global().Get("Object").New()
 		out.Set("encKey", toJS(enc))
@@ -77,10 +78,32 @@ func deriveKeys(_ js.Value, args []js.Value) any {
 	})
 }
 
+func twoBytesArgs(name string, fn func(a, b []byte) ([]byte, error)) js.Func {
+	return js.FuncOf(func(_ js.Value, args []js.Value) any {
+		if len(args) != 2 {
+			return promise(func() (js.Value, error) {
+				return js.Undefined(), errors.New(name + " needs 2 args")
+			})
+		}
+		a, b := toBytes(args[0]), toBytes(args[1])
+		return promise(func() (js.Value, error) {
+			out, err := fn(a, b)
+			if err != nil {
+				return js.Undefined(), fmt.Errorf("%s: %w", name, err)
+			}
+			return toJS(out), nil
+		})
+	})
+}
+
 func main() {
 	js.Global().Set("vaultCrypto", map[string]any{
-		"deriveKeys":  js.FuncOf(deriveKeys),
-		"newVaultKey": js.FuncOf(newVaultKey),
+		"deriveKeys":     js.FuncOf(deriveKeys),
+		"newVaultKey":    js.FuncOf(newVaultKey),
+		"seal":           twoBytesArgs("seal", crypto.Seal),
+		"open":           twoBytesArgs("open", crypto.Open),
+		"wrapVaultKey":   twoBytesArgs("wrapVaultKey", crypto.WrapVaultKey),
+		"unwrapVaultKey": twoBytesArgs("unwrapVaultKey", crypto.UnwrapVaultKey),
 	})
 	select {}
 }
