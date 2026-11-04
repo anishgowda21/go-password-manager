@@ -4,6 +4,8 @@
 package crypto
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
@@ -53,3 +55,52 @@ func NewVaultKey() ([]byte, error) {
 
 	return k, nil
 }
+
+// encrypts plaintext with AES-256-GCM. Output is nonce || ciphertext.
+func Seal(key, plaintext []byte) ([]byte, error) {
+	gcm, err := newGCM(key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+
+	return gcm.Seal(nonce, nonce, plaintext, nil), nil
+}
+
+// reverses Seal. GCM authenticates, so a wrong key or tampered data errors.
+func Open(key, blob []byte) ([]byte, error) {
+	gcm, err := newGCM(key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(blob) < gcm.NonceSize() {
+		return nil, errors.New("ciphertext too short")
+	}
+
+	nonce, ct := blob[:gcm.NonceSize()], blob[gcm.NonceSize():]
+	return gcm.Open(nil, nonce, ct, nil)
+
+}
+
+func newGCM(key []byte) (cipher.AEAD, error) {
+	block, err := aes.NewCipher(key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return cipher.NewGCM(block)
+}
+
+// encrypts the vault key with the password-derived encKey.
+func WrapVaultKey(encKey, vaultKey []byte) ([]byte, error) { return Seal(encKey, vaultKey) }
+
+// recovers the vault key on the client after login.
+func UnwrapVaultKey(encKey, wrapped []byte) ([]byte, error) { return Open(encKey, wrapped) }
