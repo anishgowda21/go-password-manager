@@ -31,7 +31,7 @@ type NewUser struct {
 func CreateUser(ctx context.Context, db *sql.DB, u NewUser) (string, error) {
 	var se *sqlite.Error
 	id := uuid.NewV7().String()
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := getUnixTimeStamp(time.Now())
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
