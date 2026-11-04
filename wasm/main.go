@@ -52,6 +52,16 @@ func newVaultKey(_ js.Value, _ []js.Value) any {
 	})
 }
 
+func generateRandomSalt(_ js.Value, _ []js.Value) any {
+	return promise(func() (js.Value, error) {
+		k, err := crypto.GenerateRandomSalt()
+		if err != nil {
+			return js.Undefined(), errors.New("cannot produce salt, error: " + err.Error())
+		}
+		return toJS(k), nil
+	})
+}
+
 func deriveKeys(_ js.Value, args []js.Value) any {
 	if len(args) != 5 {
 		return promise(func() (js.Value, error) {
@@ -98,12 +108,13 @@ func twoBytesArgs(name string, fn func(a, b []byte) ([]byte, error)) js.Func {
 
 func main() {
 	js.Global().Set("vaultCrypto", map[string]any{
-		"deriveKeys":     js.FuncOf(deriveKeys),
-		"newVaultKey":    js.FuncOf(newVaultKey),
-		"seal":           twoBytesArgs("seal", crypto.Seal),
-		"open":           twoBytesArgs("open", crypto.Open),
-		"wrapVaultKey":   twoBytesArgs("wrapVaultKey", crypto.WrapVaultKey),
-		"unwrapVaultKey": twoBytesArgs("unwrapVaultKey", crypto.UnwrapVaultKey),
+		"deriveKeys":         js.FuncOf(deriveKeys),
+		"newVaultKey":        js.FuncOf(newVaultKey),
+		"generateRandomSalt": js.FuncOf(generateRandomSalt),
+		"seal":               twoBytesArgs("seal", crypto.Seal),
+		"open":               twoBytesArgs("open", crypto.Open),
+		"wrapVaultKey":       twoBytesArgs("wrapVaultKey", crypto.WrapVaultKey),
+		"unwrapVaultKey":     twoBytesArgs("unwrapVaultKey", crypto.UnwrapVaultKey),
 	})
 	select {}
 }

@@ -310,6 +310,54 @@ func TestSealOpen(t *testing.T) {
 
 }
 
+func TestGenerateRandomSalt(t *testing.T) {
+	t.Run("returns 16 bytes", func(t *testing.T) {
+		s, err := GenerateRandomSalt()
+		if err != nil {
+			t.Fatalf("generateRandomSalt() error: %v", err)
+		}
+
+		if len(s) != 16 {
+			t.Fatalf("salt length must be 16, got %d", len(s))
+		}
+	})
+
+	t.Run("gives a different salt each time", func(t *testing.T) {
+		a, err := GenerateRandomSalt()
+		b, err2 := GenerateRandomSalt()
+
+		if err != nil || err2 != nil {
+			t.Fatalf("generateRandomSalt() error: %v %v", err, err2)
+		}
+
+		if slices.Equal(a, b) {
+			t.Fatal("salts must be random")
+		}
+	})
+
+	t.Run("is not all zeros", func(t *testing.T) {
+		s, err := GenerateRandomSalt()
+		if err != nil {
+			t.Fatalf("generateRandomSalt() error: %v", err)
+		}
+
+		if bytes.Equal(s, make([]byte, 16)) {
+			t.Fatal("salt must not be all zero bytes")
+		}
+	})
+
+	t.Run("is accepted by DeriveKeys", func(t *testing.T) {
+		s, err := GenerateRandomSalt()
+		if err != nil {
+			t.Fatalf("generateRandomSalt() error: %v", err)
+		}
+
+		if _, _, err := DeriveKeys(password, s, k); err != nil {
+			t.Fatalf("a generated salt must be valid for DeriveKeys: %v", err)
+		}
+	})
+}
+
 // This is to compare hash with the client test case
 func TestKnownAnswer(t *testing.T) {
 	salt := bytes.Repeat([]byte{1}, 16)

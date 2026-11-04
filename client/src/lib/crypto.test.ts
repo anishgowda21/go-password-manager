@@ -157,3 +157,27 @@ describe("full login flow", () => {
     await expect(vc.unwrapVaultKey(encKey, wrapped)).rejects.toThrow();
   });
 });
+
+describe("generateRandomSalt", () => {
+  it("returns 16 bytes", async () => {
+    const salt = await vc.generateRandomSalt();
+    expect(salt).toBeInstanceOf(Uint8Array);
+    expect(salt.length).toBe(16);
+  });
+
+  it("gives a different salt each time", async () => {
+    const a = await vc.generateRandomSalt();
+    const b = await vc.generateRandomSalt();
+    expect(a).not.toEqual(b);
+  });
+
+  it("is not all zeros", async () => {
+    const salt = await vc.generateRandomSalt();
+    expect(salt.some((byte) => byte !== 0)).toBe(true);
+  });
+
+  it("is accepted by deriveKeys", async () => {
+    const salt = await vc.generateRandomSalt();
+    await expect(derive(PASSWORD, salt)).resolves.toBeDefined();
+  });
+});

@@ -99,9 +99,17 @@ func newGCM(key []byte) (cipher.AEAD, error) {
 	return cipher.NewGCM(block)
 }
 
+func GenerateRandomSalt() ([]byte, error) {
+	s := make([]byte, 16)
+	if _, err := rand.Read(s); err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
 // encrypts the vault key with the password-derived encKey.
 func WrapVaultKey(encKey, vaultKey []byte) ([]byte, error) { return Seal(encKey, vaultKey) }
 
 // recovers the vault key on the client after login.
 func UnwrapVaultKey(encKey, wrapped []byte) ([]byte, error) { return Open(encKey, wrapped) }
-

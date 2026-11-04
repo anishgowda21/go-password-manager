@@ -43,7 +43,8 @@ export const vaultCrypto = {
     memory: number,
     parallelism: number,
   ) =>
-    call<{ encKey: Uint8Array; authKey: Uint8Array }>(
+    call<{ encKey: Uint8Array<ArrayBuffer>; authKey: Uint8Array<ArrayBuffer> }>(
+      "deriveKeys",
       "deriveKeys",
       password,
       salt,
@@ -51,13 +52,14 @@ export const vaultCrypto = {
       memory,
       parallelism,
     ),
-  newVaultKey: () => call<Uint8Array>("newVaultKey"),
+  newVaultKey: () => call<Uint8Array<ArrayBuffer>>("newVaultKey"),
+  generateRandomSalt: () => call<Uint8Array<ArrayBuffer>>("generateRandomSalt"),
   seal: (key: Uint8Array, plaintext: Uint8Array) =>
-    call<Uint8Array>("seal", key, plaintext),
+    call<Uint8Array<ArrayBuffer>>("seal", key, plaintext),
   open: (key: Uint8Array, cipher: Uint8Array) =>
-    call<Uint8Array>("open", key, cipher),
+    call<Uint8Array<ArrayBuffer>>("open", key, cipher),
   wrapVaultKey: (encKey: Uint8Array, vaultKey: Uint8Array) =>
-    call<Uint8Array>("wrapVaultKey", encKey, vaultKey),
+    call<Uint8Array<ArrayBuffer>>("wrapVaultKey", encKey, vaultKey),
   unwrapVaultKey: (encKey: Uint8Array, wrapped: Uint8Array) =>
-    call<Uint8Array>("unwrapVaultKey", encKey, wrapped),
+    call<Uint8Array<ArrayBuffer>>("unwrapVaultKey", encKey, wrapped),
 };
