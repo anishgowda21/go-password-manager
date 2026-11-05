@@ -4,10 +4,24 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
 )
 
 type server struct {
-	db *sql.DB
+	db        *sql.DB
+	jwtSecret []byte
+}
+
+func getJWTSecret() []byte {
+	sec := os.Getenv("JWT_SECRET")
+	if sec == "" {
+		panic("JWT Secret not avilable in environment!")
+	}
+	if len(sec) < 32 {
+		panic("JWT Secret too short at least 32 bytes needed!")
+	}
+
+	return []byte(sec)
 }
 
 func catchAll(w http.ResponseWriter, r *http.Request) {
@@ -16,7 +30,7 @@ func catchAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func NewServer(db *sql.DB) *http.ServeMux {
-	s := &server{db: db}
+	s := &server{db: db, jwtSecret: getJWTSecret()}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/signup", s.signupHandler)
 	mux.HandleFunc("/", catchAll)

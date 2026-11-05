@@ -17,6 +17,8 @@ type signupRequest struct {
 	AuthKey         string       `json:"authKey"`
 	WrappedVaultKey string       `json:"wrappedVaultKey"`
 	Salt            string       `json:"salt"`
+	DeviceID        string       `json:"deviceId"`
+	DeviceName      string       `json:"deviceName"`
 	KDF             database.KDF `json:"kdf"`
 }
 
@@ -90,6 +92,13 @@ func (s *server) signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("signup: created user %s (%s)", id, req.Email)
-	writeJSON(w, http.StatusCreated, map[string]string{"userId": id})
+	authResponse, err := s.issueAuth(r.Context(), id, req.DeviceID, req.DeviceName, req.WrappedVaultKey, req.Salt, KDFPayload(req.KDF))
+
+	if err != nil {
+		log.Printf("signup: auth issue error: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusCreated, authResponse)
 }

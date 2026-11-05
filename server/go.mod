@@ -3,6 +3,7 @@ module gitlab.com/anishgowda21/go-password-manager/server
 go 1.27.3
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	golang.org/x/crypto v0.58.0
 	modernc.org/sqlite v1.61.1
 )
