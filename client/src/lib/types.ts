@@ -7,6 +7,8 @@ export interface KdfPayload {
 
 export interface SignupRequest {
   email: string;
+  deviceId: string;
+  deviceName: string;
   authKey: string;
   wrappedVaultKey: string;
   salt: string;

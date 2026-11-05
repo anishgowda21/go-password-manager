@@ -3,6 +3,7 @@ import { signup as postSignup } from "./api";
 import { toBase64 } from "./base64";
 import { KDF_DEFAULTS, validateKdf } from "./kdf";
 import type { SignupRequest } from "./types";
+import { getDeviceInfo } from "./device";
 
 export async function signUp(email: string, password: string): Promise<void> {
   const kdf = { ...KDF_DEFAULTS };
@@ -18,9 +19,12 @@ export async function signUp(email: string, password: string): Promise<void> {
   );
   const vaultKey = await vaultCrypto.newVaultKey();
   const wrappedVaultKey = await vaultCrypto.wrapVaultKey(encKey, vaultKey);
+  const { deviceId, deviceName } = getDeviceInfo();
 
   const body: SignupRequest = {
     email: email.trim().toLowerCase(),
+    deviceId,
+    deviceName,
     authKey: toBase64(authKey),
     wrappedVaultKey: toBase64(wrappedVaultKey),
     salt: toBase64(salt),
