@@ -24,6 +24,19 @@ CREATE TABLE IF NOT EXISTS kdf_settings (
 	parallelism INTEGER NOT NULL,
 	salt        TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id                 TEXT PRIMARY KEY,
+    user_id            TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    refresh_token_hash TEXT NOT NULL UNIQUE,
+    device_id          TEXT NOT NULL,
+    device_name        TEXT NOT NULL,
+    created_at         INTEGER NOT NULL,
+    last_used_at       INTEGER NOT NULL,
+    expires_at         INTEGER NOT NULL,
+    revoked_at         INTEGER,
+    UNIQUE (user_id, device_id)
+);
 `
 
 func OpenDB(path string) (*sql.DB, error) {
