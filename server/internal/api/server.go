@@ -33,6 +33,7 @@ func NewServer(db *sql.DB) *http.ServeMux {
 	s := &server{db: db, jwtSecret: getJWTSecret()}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/signup", s.signupHandler)
-	mux.HandleFunc("/", catchAll)
+	mux.HandleFunc("POST /api/prelogin", s.preloginHandler)
+	mux.HandleFunc("/*", catchAll)
 	return mux
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"net/mail"
 	"strings"
 
 	"gitlab.com/anishgowda21/go-password-manager/server/internal/database"
@@ -23,10 +22,8 @@ type signupRequest struct {
 }
 
 func validateSignup(req *signupRequest) error {
-	addr, err := mail.ParseAddress(req.Email)
-
-	if err != nil || addr.Address != req.Email || len(req.Email) > 254 {
-		return errors.New("invalid email")
+	if err := validateEmail(req.Email); err != nil {
+		return err
 	}
 
 	if decodedLen(req.AuthKey) != 32 {

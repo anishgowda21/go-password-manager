@@ -13,6 +13,14 @@ import (
 
 var ErrEmailTaken = errors.New("email already registered")
 
+type Account struct {
+	UserID         string
+	HashedAuthKey  string
+	WrappedUserKey string
+	Salt           string
+	KDF            KDF
+}
+
 type KDF struct {
 	Type        int `json:"type"`
 	Time        int `json:"time"`
@@ -27,6 +35,8 @@ type NewUser struct {
 	Salt           string
 	KDF            KDF
 }
+
+var ErrNotFound = errors.New("not found")
 
 func CreateUser(ctx context.Context, db *sql.DB, u NewUser) (string, error) {
 	var se *sqlite.Error
@@ -61,4 +71,20 @@ func CreateUser(ctx context.Context, db *sql.DB, u NewUser) (string, error) {
 	}
 
 	return id, tx.Commit()
+}
+
+func GetAccountByEmail(ctx context.Context, db *sql.DB, email string) (Account, error) {
+	var a Account
+	err := db.QueryRowContext(ctx, `
+		SELECT u.id, k.hashed_auth_key, k.wrapped_user_key, 
+		s.salt, s.kdf_type, s.time, s.memory_kib, s.parallelism
+		FROM users u JOIN user_keys k ON k.user_id = u.id
+		JOIN kdf_settings s ON s.user_id = u.id WHERE u.email = ?`, email).Scan(
+		&a.UserID, &a.HashedAuthKey, &a.WrappedUserKey, &a.Salt, &a.KDF.Type, &a.KDF.Time, &a.KDF.MemoryKiB, &a.KDF.Parallelism)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return Account{}, ErrNotFound
+	}
+
+	return a, err
 }
