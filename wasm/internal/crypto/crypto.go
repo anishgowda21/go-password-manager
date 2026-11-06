@@ -15,7 +15,23 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-const keyLen = 32
+const (
+	blobV1     byte = 1
+	nonceSize       = 12
+	tagSize         = 16
+	minBlobLen      = 1 + nonceSize + tagSize
+
+	vaultKeyAAD   = "vaultkey/v1"
+	itemAADPrefix = "item/v1:"
+
+	keyLen = 32
+)
+
+var (
+	ErrBlobTooShort       = errors.New("blob too short")
+	ErrUnsupportedVersion = errors.New("unsupported blob version")
+	ErrEmptyItemID        = errors.New("item id required")
+)
 
 type KDFParams struct {
 	Time        uint32
@@ -57,23 +73,33 @@ func NewVaultKey() ([]byte, error) {
 }
 
 // encrypts plaintext with AES-256-GCM. Output is nonce || ciphertext.
-func Seal(key, plaintext []byte) ([]byte, error) {
+func Seal(key, plaintext []byte, aad []byte) ([]byte, error) {
 	gcm, err := newGCM(key)
 
 	if err != nil {
 		return nil, err
 	}
-
-	nonce := make([]byte, gcm.NonceSize())
+	out := make([]byte, 1+gcm.NonceSize(), 1+gcm.NonceSize()+len(plaintext)+gcm.Overhead())
+	out[0] = blobV1
+	nonce := out[1:]
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
 
-	return gcm.Seal(nonce, nonce, plaintext, nil), nil
+	return gcm.Seal(out, nonce, plaintext, aad), nil
 }
 
 // reverses Seal. GCM authenticates, so a wrong key or tampered data errors.
-func Open(key, blob []byte) ([]byte, error) {
+func Open(key, blob []byte, aad []byte) ([]byte, error) {
+
+	if len(blob) < minBlobLen {
+		return nil, ErrBlobTooShort
+	}
+
+	if blob[0] != blobV1 {
+		return nil, ErrUnsupportedVersion
+	}
+
 	gcm, err := newGCM(key)
 
 	if err != nil {
@@ -84,8 +110,8 @@ func Open(key, blob []byte) ([]byte, error) {
 		return nil, errors.New("ciphertext too short")
 	}
 
-	nonce, ct := blob[:gcm.NonceSize()], blob[gcm.NonceSize():]
-	return gcm.Open(nil, nonce, ct, nil)
+	nonce, ct := blob[1:1+gcm.NonceSize()], blob[1+gcm.NonceSize():]
+	return gcm.Open(nil, nonce, ct, aad)
 
 }
 
@@ -109,7 +135,27 @@ func GenerateRandomSalt() ([]byte, error) {
 }
 
 // encrypts the vault key with the password-derived encKey.
-func WrapVaultKey(encKey, vaultKey []byte) ([]byte, error) { return Seal(encKey, vaultKey) }
+func WrapVaultKey(encKey, vaultKey []byte) ([]byte, error) {
+	return Seal(encKey, vaultKey, []byte(vaultKeyAAD))
+}
 
 // recovers the vault key on the client after login.
-func UnwrapVaultKey(encKey, wrapped []byte) ([]byte, error) { return Open(encKey, wrapped) }
+func UnwrapVaultKey(encKey, wrapped []byte) ([]byte, error) {
+	return Open(encKey, wrapped, []byte(vaultKeyAAD))
+}
+
+func itemAAD(itemID string) []byte { return []byte(itemAADPrefix + itemID) }
+
+func SealItem(vaultKey []byte, itemID string, plaintext []byte) ([]byte, error) {
+	if itemID == "" {
+		return nil, ErrEmptyItemID
+	}
+	return Seal(vaultKey, plaintext, itemAAD(itemID))
+}
+
+func OpenItem(vaultKey []byte, itemID string, blob []byte) ([]byte, error) {
+	if itemID == "" {
+		return nil, ErrEmptyItemID
+	}
+	return Open(vaultKey, blob, itemAAD(itemID))
+}
