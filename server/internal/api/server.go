@@ -34,6 +34,7 @@ func NewServer(db *sql.DB) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/signup", s.signupHandler)
 	mux.HandleFunc("POST /api/prelogin", s.preloginHandler)
+	mux.HandleFunc("POST /api/login", s.loginHandler)
 	mux.HandleFunc("/*", catchAll)
 	return mux
 }
