@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/hmac"
+	"encoding/base64"
 	"encoding/json/v2"
 	"errors"
 	"log"
@@ -8,7 +10,6 @@ import (
 	"strings"
 
 	"gitlab.com/anishgowda21/go-password-manager/server/internal/database"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var defaultKDF = KDFPayload{Type: 1, Time: 3, MemoryKiB: 64 * 1024, Parallelism: 1}
@@ -70,31 +71,32 @@ func (s *server) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if decodedLen(req.AuthKey) != 32 {
-		writeError(w, http.StatusBadRequest, "invalid auth key")
-		return
-	}
-
 	deviceName, err := validateDevice(req.DeviceID, req.DeviceName)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	acct, err := database.GetAccountByEmail(r.Context(), s.db, req.Email)
-	switch {
-	case errors.Is(err, database.ErrNotFound):
-		//Military grade technique to even out time diff, lol
-		bcrypt.CompareHashAndPassword(dummyHash, []byte(req.AuthKey))
-		writeError(w, http.StatusUnauthorized, "invalid email or password")
+	authBytes, err := base64.StdEncoding.DecodeString(req.AuthKey)
+	if err != nil || len(authBytes) != 32 {
+		writeError(w, http.StatusBadRequest, "invalid auth key")
 		return
-	case err != nil:
+	}
+
+	acct, err := database.GetAccountByEmail(r.Context(), s.db, req.Email)
+	found := err == nil
+	if err != nil && !errors.Is(err, database.ErrNotFound) {
 		log.Printf("login: lookup: %v", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(acct.HashedAuthKey), []byte(req.AuthKey)); err != nil {
+	stored := dummyAuthHash
+	if found {
+		stored = acct.HashedAuthKey
+	}
+	match := hmac.Equal([]byte(s.hashAuthKey(authBytes)), []byte(stored))
+	if !found || !match {
 		writeError(w, http.StatusUnauthorized, "invalid email or password")
 		return
 	}

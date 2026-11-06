@@ -9,8 +9,6 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type KDFPayload struct {
@@ -24,14 +22,12 @@ var uuidRe = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4
 
 // Saw this in twitter Military grade techinique to
 // even out the time diff b/w account not existing and wrong password lol
-var dummyHash = mustBcrypt("dummy-password")
+const dummyAuthHash = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
-func mustBcrypt(s string) []byte {
-	h, err := bcrypt.GenerateFromPassword([]byte(s), bcrypt.DefaultCost)
-	if err != nil {
-		panic(err)
-	}
-	return h
+func (s *server) hashAuthKey(authKey []byte) string {
+	mac := hmac.New(sha256.New, s.authHashKey)
+	mac.Write(authKey)
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
 func decodedLen(s string) int {

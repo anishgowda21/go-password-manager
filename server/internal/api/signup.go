@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json/v2"
 	"errors"
 	"log"
@@ -8,7 +9,6 @@ import (
 	"strings"
 
 	"gitlab.com/anishgowda21/go-password-manager/server/internal/database"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type signupRequest struct {
@@ -26,15 +26,7 @@ func validateSignup(req *signupRequest) error {
 		return err
 	}
 
-	if decodedLen(req.AuthKey) != 32 {
-		return errors.New("invalid auth key")
-	}
-
-	if _, err := validateDevice(req.DeviceID, req.DeviceName); err != nil {
-		return err
-	}
-
-	if decodedLen(req.WrappedVaultKey) != 60 {
+	if decodedLen(req.WrappedVaultKey) != 61 {
 		return errors.New("invalid wrapped vault key")
 	}
 
@@ -68,16 +60,23 @@ func (s *server) signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.AuthKey), bcrypt.DefaultCost)
+	deviceName, err := validateDevice(req.DeviceID, req.DeviceName)
 	if err != nil {
-		log.Printf("signup: hash error: %v", err)
-		writeError(w, http.StatusInternalServerError, "internal error")
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
+	authBytes, err := base64.StdEncoding.DecodeString(req.AuthKey)
+	if err != nil || len(authBytes) != 32 {
+		writeError(w, http.StatusBadRequest, "invalid auth key")
+		return
+	}
+
+	hash := s.hashAuthKey(authBytes)
+
 	id, err := database.CreateUser(r.Context(), s.db, database.NewUser{
 		Email:          req.Email,
-		HashedAuthKey:  string(hash),
+		HashedAuthKey:  hash,
 		WrappedUserKey: req.WrappedVaultKey,
 		Salt:           req.Salt,
 		KDF:            req.KDF,
@@ -93,7 +92,7 @@ func (s *server) signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authResponse, err := s.issueAuth(r.Context(), id, req.DeviceID, strings.TrimSpace(req.DeviceName), req.WrappedVaultKey, req.Salt, KDFPayload(req.KDF))
+	authResponse, err := s.issueAuth(r.Context(), id, req.DeviceID, deviceName, req.WrappedVaultKey, req.Salt, KDFPayload(req.KDF))
 
 	if err != nil {
 		log.Printf("signup: auth issue error: %v", err)
