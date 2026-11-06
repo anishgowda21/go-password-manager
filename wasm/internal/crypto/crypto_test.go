@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"bytes"
+	"errors"
 	"slices"
 	"testing"
 )
@@ -13,6 +14,8 @@ var k = KDFParams{
 	MemoryKiB:   8 * 1024,
 	Parallelism: 1,
 }
+
+const itemID = "item-123"
 
 func TestFullLoginFlow(t *testing.T) {
 	secret := []byte("secret vault data")
@@ -32,7 +35,7 @@ func TestFullLoginFlow(t *testing.T) {
 		t.Fatalf("WrapVaultKey() error: %v", err)
 	}
 
-	sealed, err := Seal(vaultKey, secret)
+	sealed, err := SealItem(vaultKey, itemID, secret)
 	if err != nil {
 		t.Fatalf("Seal() error: %v", err)
 	}
@@ -48,7 +51,7 @@ func TestFullLoginFlow(t *testing.T) {
 			t.Fatalf("UnwrapVaultKey() error: %v", err)
 		}
 
-		opened, err := Open(unwrapped, sealed)
+		opened, err := OpenItem(unwrapped, itemID, sealed)
 		if err != nil {
 			t.Fatalf("Open() error: %v", err)
 		}
@@ -212,13 +215,14 @@ func TestWrapUnwrapValutKey(t *testing.T) {
 
 func TestSealOpen(t *testing.T) {
 	key := bytes.Repeat([]byte{6}, 32)
+	aad := []byte("test/aad")
 	plainText := []byte("{\"username\" : \"user1\",\"password\":\"Super secure passwd\"}")
-	t.Run("round trips with same key", func(t *testing.T) {
-		sealed, err := Seal(key, plainText)
+	t.Run("round trips with same key and aad", func(t *testing.T) {
+		sealed, err := Seal(key, plainText, aad)
 		if err != nil {
 			t.Fatalf("Seal() error: %v", err)
 		}
-		opened, err := Open(key, sealed)
+		opened, err := Open(key, sealed, aad)
 		if err != nil {
 			t.Fatalf("Open() error: %v", err)
 		}
@@ -228,9 +232,33 @@ func TestSealOpen(t *testing.T) {
 		}
 	})
 
+	t.Run("round trips with nil aad", func(t *testing.T) {
+		sealed, err := Seal(key, plainText, nil)
+		if err != nil {
+			t.Fatalf("Seal() error: %v", err)
+		}
+		if _, err := Open(key, sealed, nil); err != nil {
+			t.Fatalf("Open() error: %v", err)
+		}
+	})
+
+	t.Run("blob has version byte and expected length", func(t *testing.T) {
+		sealed, err := Seal(key, plainText, aad)
+		if err != nil {
+			t.Fatalf("Seal() error: %v", err)
+		}
+		if sealed[0] != blobV1 {
+			t.Fatalf("first byte must be version %d, got %d", blobV1, sealed[0])
+		}
+		want := 1 + nonceSize + len(plainText) + tagSize
+		if len(sealed) != want {
+			t.Fatalf("blob length must be %d, got %d", want, len(sealed))
+		}
+	})
+
 	t.Run("gives a different blob each time (random nonce)", func(t *testing.T) {
-		a, err := Seal(key, plainText)
-		b, err2 := Seal(key, plainText)
+		a, err := Seal(key, plainText, aad)
+		b, err2 := Seal(key, plainText, aad)
 
 		if err != nil || err2 != nil {
 			t.Fatalf("Seal() error: %v", err)
@@ -242,33 +270,45 @@ func TestSealOpen(t *testing.T) {
 	})
 
 	t.Run("rejects an invalid key length", func(t *testing.T) {
-		_, err := Seal(key[:15], plainText)
+		_, err := Seal(key[:15], plainText, aad)
 
 		if err == nil {
 			t.Fatalf("key length less then 32 must be rejected by Seal()")
 		}
 
-		sealed, err := Seal(key, plainText)
+		sealed, err := Seal(key, plainText, aad)
 
 		if err != nil {
 			t.Fatalf("Seal() error: %v", err)
 		}
 
-		_, err = Open(key[:15], sealed)
+		_, err = Open(key[:15], sealed, aad)
 
 		if err == nil {
 			t.Fatalf("key length less then 32 must be rejected by Open()")
 		}
 	})
 
+	t.Run("rejects unsupported version", func(t *testing.T) {
+		sealed, err := Seal(key, plainText, aad)
+		if err != nil {
+			t.Fatalf("Seal() error: %v", err)
+		}
+		sealed[0] = 99
+		_, err = Open(key, sealed, aad)
+		if !errors.Is(err, ErrUnsupportedVersion) {
+			t.Fatalf("want ErrUnsupportedVersion, got %v", err)
+		}
+	})
+
 	t.Run("rejects short ciphertext", func(t *testing.T) {
-		sealed, err := Seal(key, plainText)
+		sealed, err := Seal(key, plainText, aad)
 
 		if err != nil {
 			t.Fatalf("Seal() error: %v", err)
 		}
 
-		_, err = Open(key, sealed[:10])
+		_, err = Open(key, sealed[:10], aad)
 
 		if err == nil {
 			t.Fatalf("Must reject short ciphertext")
@@ -277,37 +317,88 @@ func TestSealOpen(t *testing.T) {
 	})
 
 	t.Run("rejects tampered ciphertext", func(t *testing.T) {
-		sealed, err := Seal(key, plainText)
+		sealed, err := Seal(key, plainText, aad)
 
 		if err != nil {
 			t.Fatalf("Seal() error: %v", err)
 		}
 
 		sealed[20] ^= 1
-		_, err = Open(key, sealed)
+		_, err = Open(key, sealed, aad)
 
 		if err == nil {
 			t.Fatalf("Must reject tampered ciphertext")
 		}
+	})
 
+	t.Run("rejects tampered nonce", func(t *testing.T) {
+		sealed, err := Seal(key, plainText, aad)
+		if err != nil {
+			t.Fatalf("Seal() error: %v", err)
+		}
+		sealed[1] ^= 1
+		if _, err := Open(key, sealed, aad); err == nil {
+			t.Fatal("must reject tampered nonce")
+		}
 	})
 
 	t.Run("rejects the wrong key", func(t *testing.T) {
-		sealed, err := Seal(key, plainText)
+		sealed, err := Seal(key, plainText, aad)
 
 		if err != nil {
 			t.Fatalf("Seal() error: %v", err)
 		}
 
 		key2 := bytes.Repeat([]byte{9}, 32)
-		_, err = Open(key2, sealed)
+		_, err = Open(key2, sealed, aad)
 
 		if err == nil {
 			t.Fatalf("Must reject wrong key")
 		}
-
 	})
 
+	t.Run("rejects mismatched aad", func(t *testing.T) {
+		sealed, err := Seal(key, plainText, aad)
+		if err != nil {
+			t.Fatalf("Seal() error: %v", err)
+		}
+		if _, err := Open(key, sealed, []byte("other/aad")); err == nil {
+			t.Fatal("must reject different aad")
+		}
+	})
+
+	t.Run("rejects missing aad", func(t *testing.T) {
+		sealed, err := Seal(key, plainText, aad)
+		if err != nil {
+			t.Fatalf("Seal() error: %v", err)
+		}
+		if _, err := Open(key, sealed, nil); err == nil {
+			t.Fatal("must reject nil aad when sealed with aad")
+		}
+	})
+
+}
+
+func TestWrappedKeyNotOpenableAsItem(t *testing.T) {
+	key := bytes.Repeat([]byte{1}, 32)
+	vk, _ := NewVaultKey()
+	w, err := WrapVaultKey(key, vk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenItem(key, "item-a", w); err == nil {
+		t.Fatal("a wrapped key must not open as an item")
+	}
+}
+
+func TestEmptyItemIDSentinel(t *testing.T) {
+	vk, _ := NewVaultKey()
+	if _, err := SealItem(vk, "", []byte("x")); !errors.Is(err, ErrEmptyItemID) {
+		t.Fatalf("SealItem: got %v, want ErrEmptyItemID", err)
+	}
+	if _, err := OpenItem(vk, "", []byte("x")); !errors.Is(err, ErrEmptyItemID) {
+		t.Fatalf("OpenItem: got %v, want ErrEmptyItemID", err)
+	}
 }
 
 func TestGenerateRandomSalt(t *testing.T) {

@@ -52,6 +52,20 @@ describe("deriveKeys", () => {
     await expect(derive(PASSWORD, SALT.slice(0, 10))).rejects.toThrow();
   });
 
+  it("rejects a non-Uint8Array salt", async () => {
+    await expect(
+      // @ts-expect-error wrong type on purpose
+      vc.deriveKeys(PASSWORD, "salt", KDF.time, KDF.memory, KDF.parallelism),
+    ).rejects.toThrow(/Uint8Array/);
+  });
+
+  it("rejects non-numeric params", async () => {
+    await expect(
+      // @ts-expect-error wrong type on purpose
+      vc.deriveKeys(PASSWORD, SALT, "1", KDF.memory, KDF.parallelism),
+    ).rejects.toThrow(/numbers/);
+  });
+
   it("matches the Go known answer", async () => {
     const { encKey, authKey } = await derive(PASSWORD);
     expect(hex(encKey)).toBe(
@@ -90,47 +104,109 @@ describe("wrapVaultKey / unwrapVaultKey", () => {
   });
 });
 
-describe("seal / open", () => {
+describe("sealItem / openItem", () => {
   const key = new Uint8Array(32).fill(1);
   const plaintext = encoder.encode(
     '{"username":"user1","password":"Super secure passwd"}',
   );
 
   it("round-trips", async () => {
-    const sealed = await vc.seal(key, plaintext);
-    const opened = await vc.open(key, sealed);
-    expect(decoder.decode(opened)).toBe(
-      '{"username":"user1","password":"Super secure passwd"}',
-    );
+    const sealed = await vc.sealItem(key, "item-1", plaintext);
+    const opened = await vc.openItem(key, "item-1", sealed);
+    expect(decoder.decode(opened)).toBe(decoder.decode(plaintext));
   });
 
   it("gives a different blob each time (random nonce)", async () => {
-    const a = await vc.seal(key, plaintext);
-    const b = await vc.seal(key, plaintext);
+    const a = await vc.sealItem(key, "item-1", plaintext);
+    const b = await vc.sealItem(key, "item-1", plaintext);
     expect(a).not.toEqual(b);
   });
 
+  it("starts with version byte 1 and has the expected length", async () => {
+    const sealed = await vc.sealItem(key, "item-1", plaintext);
+    expect(sealed[0]).toBe(1);
+    expect(sealed.length).toBe(1 + 12 + plaintext.length + 16);
+  });
+
   it("rejects an invalid key length", async () => {
-    await expect(vc.seal(key.slice(0, 15), plaintext)).rejects.toThrow();
-    const sealed = await vc.seal(key, plaintext);
-    await expect(vc.open(key.slice(0, 15), sealed)).rejects.toThrow();
+    await expect(
+      vc.sealItem(key.slice(0, 15), "item-1", plaintext),
+    ).rejects.toThrow();
+    const sealed = await vc.sealItem(key, "item-1", plaintext);
+    await expect(
+      vc.openItem(key.slice(0, 15), "item-1", sealed),
+    ).rejects.toThrow();
   });
 
   it("rejects a short ciphertext", async () => {
-    const sealed = await vc.seal(key, plaintext);
-    await expect(vc.open(key, sealed.slice(0, 8))).rejects.toThrow();
+    const sealed = await vc.sealItem(key, "item-1", plaintext);
+    await expect(
+      vc.openItem(key, "item-1", sealed.slice(0, 8)),
+    ).rejects.toThrow(/too short/);
+  });
+
+  it("rejects an unsupported version", async () => {
+    const sealed = (await vc.sealItem(key, "item-1", plaintext)).slice();
+    sealed[0] = 2;
+    await expect(vc.openItem(key, "item-1", sealed)).rejects.toThrow(
+      /unsupported/,
+    );
   });
 
   it("rejects tampered ciphertext", async () => {
-    const sealed = await vc.seal(key, plaintext);
+    const sealed = await vc.sealItem(key, "item-1", plaintext);
     const tampered = sealed.slice();
     tampered[tampered.length - 1] ^= 1;
-    await expect(vc.open(key, tampered)).rejects.toThrow();
+    await expect(vc.openItem(key, "item-1", tampered)).rejects.toThrow();
   });
 
   it("rejects the wrong key", async () => {
-    const sealed = await vc.seal(key, plaintext);
-    await expect(vc.open(new Uint8Array(32).fill(2), sealed)).rejects.toThrow();
+    const sealed = await vc.sealItem(key, "item-1", plaintext);
+    await expect(
+      vc.openItem(new Uint8Array(32).fill(2), "item-1", sealed),
+    ).rejects.toThrow();
+  });
+
+  it("rejects a blob swapped to another item id", async () => {
+    const sealed = await vc.sealItem(key, "item-1", plaintext);
+    await expect(vc.openItem(key, "item-2", sealed)).rejects.toThrow();
+  });
+
+  it("rejects an empty item id", async () => {
+    await expect(vc.sealItem(key, "", plaintext)).rejects.toThrow(/item id/);
+    const sealed = await vc.sealItem(key, "item-1", plaintext);
+    await expect(vc.openItem(key, "", sealed)).rejects.toThrow(/item id/);
+  });
+
+  it("rejects bad argument types", async () => {
+    await expect(
+      // @ts-expect-error wrong type on purpose
+      vc.sealItem("not bytes", "item-1", plaintext),
+    ).rejects.toThrow(/Uint8Array/);
+    await expect(
+      // @ts-expect-error wrong type on purpose
+      vc.sealItem(key, 123, plaintext),
+    ).rejects.toThrow();
+  });
+});
+
+describe("blob separation", () => {
+  it("wrapped key length is 61 bytes", async () => {
+    const { encKey } = await derive(PASSWORD);
+    const wrapped = await vc.wrapVaultKey(encKey, await vc.newVaultKey());
+    expect(wrapped).toHaveLength(61);
+  });
+
+  it("an item blob cannot be unwrapped as a vault key", async () => {
+    const key = new Uint8Array(32).fill(1);
+    const blob = await vc.sealItem(key, "item-1", new Uint8Array(32));
+    await expect(vc.unwrapVaultKey(key, blob)).rejects.toThrow();
+  });
+
+  it("a wrapped key cannot be opened as an item", async () => {
+    const key = new Uint8Array(32).fill(1);
+    const wrapped = await vc.wrapVaultKey(key, await vc.newVaultKey());
+    await expect(vc.openItem(key, "item-1", wrapped)).rejects.toThrow();
   });
 });
 
@@ -142,13 +218,17 @@ describe("full login flow", () => {
     const { encKey } = await derive(PASSWORD);
     const vaultKey = await vc.newVaultKey();
     wrapped = await vc.wrapVaultKey(encKey, vaultKey);
-    sealed = await vc.seal(vaultKey, encoder.encode("secret vault data"));
+    sealed = await vc.sealItem(
+      vaultKey,
+      "item-1",
+      encoder.encode("secret vault data"),
+    );
   });
 
   it("correct password unseals the data", async () => {
     const { encKey } = await derive(PASSWORD);
     const vaultKey = await vc.unwrapVaultKey(encKey, wrapped);
-    const opened = await vc.open(vaultKey, sealed);
+    const opened = await vc.openItem(vaultKey, "item-1", sealed);
     expect(decoder.decode(opened)).toBe("secret vault data");
   });
 
