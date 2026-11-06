@@ -45,6 +45,12 @@ func promise(fn func() (js.Value, error)) any {
 	return js.Global().Get("Promise").New(handler)
 }
 
+func rejected(err error) any {
+	return promise(func() (js.Value, error) {
+		return js.Undefined(), err
+	})
+}
+
 func newVaultKey(_ js.Value, _ []js.Value) any {
 	return promise(func() (js.Value, error) {
 		k, err := crypto.NewVaultKey()
@@ -67,10 +73,24 @@ func generateRandomSalt(_ js.Value, _ []js.Value) any {
 
 func deriveKeys(_ js.Value, args []js.Value) any {
 	if len(args) != 5 {
-		return promise(func() (js.Value, error) {
-			return js.Undefined(), errors.New("deriveKeys(password, salt, time, memory, parallelism) needs 5 args")
-		})
+		return rejected(errors.New("deriveKeys(password, salt, time, memory, parallelism) needs 5 args"))
 	}
+
+	if args[0].Type() != js.TypeString {
+		return rejected(errors.New("deriveKeys: password must be a string"))
+	}
+
+	for _, a := range args[2:] {
+		if a.Type() != js.TypeNumber {
+			return rejected(errors.New("deriveKeys: time, memory and parallelism must be numbers"))
+		}
+	}
+
+	salt, err := toBytes(args[1])
+	if err != nil {
+		return rejected(fmt.Errorf("deriveKeys: salt: %w", err))
+	}
+
 	password := args[0].String()
 	salt, errToBytes := toBytes(args[1])
 	p := crypto.KDFParams{
@@ -97,11 +117,17 @@ func deriveKeys(_ js.Value, args []js.Value) any {
 func twoBytesArgs(name string, fn func(a, b []byte) ([]byte, error)) js.Func {
 	return js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) != 2 {
-			return promise(func() (js.Value, error) {
-				return js.Undefined(), errors.New(name + " needs 2 args")
-			})
+			return rejected(errors.New(name + " needs 2 args"))
 		}
-		a, b := toBytes(args[0]), toBytes(args[1])
+		a, err := toBytes(args[0])
+		if err != nil {
+			return rejected(fmt.Errorf("%s: arg 1: %w", name, err))
+		}
+		b, err := toBytes(args[1])
+		if err != nil {
+			return rejected(fmt.Errorf("%s: arg 2: %w", name, err))
+		}
+
 		return promise(func() (js.Value, error) {
 			out, err := fn(a, b)
 			if err != nil {
@@ -112,13 +138,63 @@ func twoBytesArgs(name string, fn func(a, b []byte) ([]byte, error)) js.Func {
 	})
 }
 
+func sealItem(_ js.Value, args []js.Value) any {
+	if len(args) != 3 || args[1].Type() != js.TypeString {
+		return rejected(errors.New("sealItem(key, itemId, plaintext) needs 3 args and a string itemId"))
+
+	}
+
+	key, err := toBytes(args[0])
+	if err != nil {
+		return rejected(fmt.Errorf("sealItem: key: %w", err))
+	}
+	data, err := toBytes(args[2])
+	if err != nil {
+		return rejected(fmt.Errorf("sealItem: plaintext: %w", err))
+	}
+	itemID := args[1].String()
+
+	return promise(func() (js.Value, error) {
+		out, err := crypto.SealItem(key, itemID, data)
+		if err != nil {
+			return js.Undefined(), fmt.Errorf("sealItem: %w", err)
+		}
+		return toJS(out), nil
+	})
+}
+
+func openItem(_ js.Value, args []js.Value) any {
+	if len(args) != 3 || args[1].Type() != js.TypeString {
+		return promise(func() (js.Value, error) {
+			return js.Undefined(), errors.New("openItem(key, itemId, blob) needs 3 args and a string itemId")
+		})
+	}
+	key, err := toBytes(args[0])
+	if err != nil {
+		return rejected(fmt.Errorf("openItem: key: %w", err))
+	}
+	blob, err := toBytes(args[2])
+	if err != nil {
+		return rejected(fmt.Errorf("openItem: blob: %w", err))
+	}
+	itemID := args[1].String()
+
+	return promise(func() (js.Value, error) {
+		out, err := crypto.OpenItem(key, itemID, blob)
+		if err != nil {
+			return js.Undefined(), fmt.Errorf("openItem: %w", err)
+		}
+		return toJS(out), nil
+	})
+}
+
 func main() {
 	js.Global().Set("vaultCrypto", map[string]any{
 		"deriveKeys":         js.FuncOf(deriveKeys),
 		"newVaultKey":        js.FuncOf(newVaultKey),
 		"generateRandomSalt": js.FuncOf(generateRandomSalt),
-		"seal":               twoBytesArgs("seal", crypto.Seal),
-		"open":               twoBytesArgs("open", crypto.Open),
+		"sealItem":           js.FuncOf(sealItem),
+		"openItem":           js.FuncOf(openItem),
 		"wrapVaultKey":       twoBytesArgs("wrapVaultKey", crypto.WrapVaultKey),
 		"unwrapVaultKey":     twoBytesArgs("unwrapVaultKey", crypto.UnwrapVaultKey),
 	})
