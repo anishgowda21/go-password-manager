@@ -10,6 +10,7 @@ export async function signUp(email: string, password: string): Promise<void> {
   validateKdf(kdf);
 
   const salt = await vaultCrypto.generateRandomSalt();
+  password.normalize("NFKC");
   const { encKey, authKey } = await vaultCrypto.deriveKeys(
     password,
     salt,

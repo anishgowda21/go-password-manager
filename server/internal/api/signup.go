@@ -30,6 +30,10 @@ func validateSignup(req *signupRequest) error {
 		return errors.New("invalid auth key")
 	}
 
+	if _, err := validateDevice(req.DeviceID, req.DeviceName); err != nil {
+		return err
+	}
+
 	if decodedLen(req.WrappedVaultKey) != 60 {
 		return errors.New("invalid wrapped vault key")
 	}
@@ -89,7 +93,7 @@ func (s *server) signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authResponse, err := s.issueAuth(r.Context(), id, req.DeviceID, req.DeviceName, req.WrappedVaultKey, req.Salt, KDFPayload(req.KDF))
+	authResponse, err := s.issueAuth(r.Context(), id, req.DeviceID, strings.TrimSpace(req.DeviceName), req.WrappedVaultKey, req.Salt, KDFPayload(req.KDF))
 
 	if err != nil {
 		log.Printf("signup: auth issue error: %v", err)

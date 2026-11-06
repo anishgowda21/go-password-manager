@@ -10,10 +10,13 @@ import (
 
 var params = crypto.KDFParams{Time: 3, MemoryKiB: 64 * 1024, Parallelism: 1}
 
-func toBytes(v js.Value) []byte {
+func toBytes(v js.Value) ([]byte, error) {
+	if !v.InstanceOf(js.Global().Get("Uint8Array")) {
+		return nil, errors.New("expected Uint8Array")
+	}
 	b := make([]byte, v.Get("length").Int())
 	js.CopyBytesToGo(b, v)
-	return b
+	return b, nil
 }
 
 func toJS(b []byte) js.Value {
@@ -69,7 +72,7 @@ func deriveKeys(_ js.Value, args []js.Value) any {
 		})
 	}
 	password := args[0].String()
-	salt := toBytes(args[1])
+	salt, errToBytes := toBytes(args[1])
 	p := crypto.KDFParams{
 		Time:        uint32(args[2].Int()),
 		MemoryKiB:   uint32(args[3].Int()),
@@ -78,6 +81,9 @@ func deriveKeys(_ js.Value, args []js.Value) any {
 
 	return promise(func() (js.Value, error) {
 		enc, auth, err := crypto.DeriveKeys(password, salt, p)
+		if errToBytes != nil {
+			return js.Undefined(), err
+		}
 		if err != nil {
 			return js.Undefined(), errors.New("cannot derive keys, error: " + err.Error())
 		}
