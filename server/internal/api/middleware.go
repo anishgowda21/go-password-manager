@@ -18,10 +18,6 @@ const (
 	ctxSessionID
 )
 
-func userIDFrom(ctx context.Context) string {
-	id, _ := ctx.Value(ctxUserID).(string)
-	return id
-}
 
 func bearerToken(r *http.Request) (string, bool) {
 	const prefix = "bearer "

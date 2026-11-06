@@ -37,6 +37,16 @@ CREATE TABLE IF NOT EXISTS sessions (
     revoked_at         INTEGER,
     UNIQUE (user_id, device_id)
 );
+
+CREATE TABLE IF NOT EXISTS items (
+	id         TEXT    NOT NULL,
+	user_id    TEXT    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	blob       BLOB    NOT NULL,
+	revision   INTEGER NOT NULL,
+	created_at INTEGER NOT NULL,
+	updated_at INTEGER NOT NULL,
+	PRIMARY KEY (user_id, id)
+);
 `
 
 func OpenDB(path string) (*sql.DB, error) {

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -64,4 +65,9 @@ func validateDevice(id, name string) (string, error) {
 	}
 
 	return name, nil
+}
+
+func userIDFrom(ctx context.Context) string {
+	id, _ := ctx.Value(ctxUserID).(string)
+	return id
 }

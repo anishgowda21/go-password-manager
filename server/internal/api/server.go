@@ -47,6 +47,10 @@ func NewServer(db *sql.DB) *http.ServeMux {
 	mux.HandleFunc("POST /api/prelogin", s.preloginHandler)
 	mux.HandleFunc("POST /api/login", s.loginHandler)
 	mux.HandleFunc("GET /api/me", s.requireAuth(s.meHandler))
+	mux.HandleFunc("GET /api/sync", s.requireAuth(s.syncHandler))
+	mux.HandleFunc("POST /api/items", s.requireAuth(s.createItemHandler))
+	mux.HandleFunc("PUT /api/items/{id}", s.requireAuth(s.updateItemHandler))
+	mux.HandleFunc("DELETE /api/items/{id}", s.requireAuth(s.deleteItemHandler))
 	mux.HandleFunc("/", catchAll)
 	return mux
 }
