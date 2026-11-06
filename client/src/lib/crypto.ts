@@ -53,10 +53,10 @@ export const vaultCrypto = {
     ),
   newVaultKey: () => call<Uint8Array<ArrayBuffer>>("newVaultKey"),
   generateRandomSalt: () => call<Uint8Array<ArrayBuffer>>("generateRandomSalt"),
-  seal: (key: Uint8Array, plaintext: Uint8Array) =>
-    call<Uint8Array<ArrayBuffer>>("seal", key, plaintext),
-  open: (key: Uint8Array, cipher: Uint8Array) =>
-    call<Uint8Array<ArrayBuffer>>("open", key, cipher),
+  sealItem: (key: Uint8Array, itemId: string, plaintext: Uint8Array) =>
+    call<Uint8Array<ArrayBuffer>>("sealItem", key, itemId, plaintext),
+  openItem: (key: Uint8Array, itemId: string, blob: Uint8Array) =>
+    call<Uint8Array<ArrayBuffer>>("openItem", key, itemId, blob),
   wrapVaultKey: (encKey: Uint8Array, vaultKey: Uint8Array) =>
     call<Uint8Array<ArrayBuffer>>("wrapVaultKey", encKey, vaultKey),
   unwrapVaultKey: (encKey: Uint8Array, wrapped: Uint8Array) =>
