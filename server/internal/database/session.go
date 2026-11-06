@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 	"uuid"
 )
@@ -38,4 +39,17 @@ func CreateSession(ctx context.Context, db *sql.DB, req SessionRequest) (string,
 		return "", err
 	}
 	return id, nil
+}
+
+func SessionIsActive(ctx context.Context, db *sql.DB, sessionID, userID string) (bool, error) {
+	var one int
+	now := getUnixTimeStamp(time.Now())
+	err := db.QueryRowContext(ctx, `
+		SELECT 1 FROM sessions
+		WHERE id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?`,
+		sessionID, userID, now).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
 }
