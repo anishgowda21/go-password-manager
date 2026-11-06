@@ -14,3 +14,25 @@ export interface SignupRequest {
   salt: string;
   kdf: KdfPayload;
 }
+
+export interface PreloginResponse {
+  salt: string;
+  kdf: KdfPayload;
+}
+
+export interface LoginRequest {
+  email: string;
+  authKey: string;
+  deviceId: string;
+  deviceName: string;
+}
+
+export interface AuthResponse {
+  userId: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  wrappedVaultKey: string;
+  salt: string;
+  kdf: KdfPayload;
+}
