@@ -14,24 +14,24 @@ type server struct {
 }
 
 func getEnvKeys(s *server) {
-	jwt_sec := os.Getenv("JWT_SECRET")
-	if jwt_sec == "" {
+	jwtSec := os.Getenv("JWT_SECRET")
+	if jwtSec == "" {
 		panic("JWT Secret not avilable in environment!")
 	}
-	if len(jwt_sec) < 32 {
+	if len(jwtSec) < 32 {
 		panic("JWT Secret too short at least 32 bytes needed!")
 	}
 
-	auth_key := os.Getenv("AUTH_HASH_KEY")
+	authKey := os.Getenv("AUTH_HASH_KEY")
 
-	if auth_key == "" {
-		panic("JWT Secret not avilable in environment!")
+	if authKey == "" {
+		panic("Auth hash key not avilable in environment!")
 	}
-	if len(auth_key) < 32 {
-		panic("JWT Secret too short at least 32 bytes needed!")
+	if len(authKey) < 32 {
+		panic("Auth hash key too short at least 32 bytes needed!")
 	}
-	s.jwtSecret = []byte(jwt_sec)
-	s.authHashKey = []byte(auth_key)
+	s.jwtSecret = []byte(jwtSec)
+	s.authHashKey = []byte(authKey)
 }
 
 func catchAll(w http.ResponseWriter, r *http.Request) {
