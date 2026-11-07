@@ -55,7 +55,8 @@ export async function authFetch(
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
-  const used = useSession.getState().accessToken;
+  let used = useSession.getState().accessToken;
+  if (!used) used = await refreshTokens();
   const res = await send(used);
   if (res.status !== 401) return res;
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Navigate } from "react-router";
+import { Link, Navigate } from "react-router";
 import { useSession } from "../store/session";
 import { logOut } from "../lib/auth";
 import { createItem, deleteItem, fetchItems, updateItem } from "../lib/items";
@@ -10,6 +10,7 @@ export default function Dashboard() {
   const email = useSession((s) => s.email);
   const vaultKey = useSession((s) => s.vaultKey);
   const items = useSession((s) => s.items);
+  const refreshToken = useSession((s) => s.refreshToken);
 
   const [dialog, setDialog] = useState<{ item: VaultItem | null } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,7 +35,8 @@ export default function Dashboard() {
     void sync();
   }, [sync]);
 
-  if (!vaultKey) return <Navigate to="/login" replace />;
+  if (!refreshToken) return <Navigate to="/login" replace />;
+  if (!vaultKey) return <Navigate to="/unlock" replace />;
 
   async function handleSave(data: ItemData) {
     const current = dialog?.item ?? null;
@@ -58,7 +60,10 @@ export default function Dashboard() {
   return (
     <main className="mx-auto max-w-2xl p-4">
       <header className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Vault</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold">Vault</h1>
+          <Link to="/">Home</Link>
+        </div>
         <div className="flex items-center gap-3 text-sm">
           <span>{email}</span>
           <button
@@ -70,6 +75,7 @@ export default function Dashboard() {
             Sync
           </button>
           <button onClick={() => void logOut()}>Log out</button>
+          <button onClick={() => useSession.getState().lock()}>Lock</button>
         </div>
       </header>
 

@@ -1,15 +1,17 @@
 import { useState, type SubmitEvent } from "react";
 import { signUp } from "../lib/signup";
-import { useNavigate } from "react-router";
-import { startSession } from "../store/session";
+import { Navigate, useNavigate } from "react-router";
+import { homeFor, startSession, useAuthState } from "../store/session";
 
 export default function Signup() {
+  const auth = useAuthState();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  if (auth !== "out") return <Navigate to={homeFor(auth)} replace />;
 
   async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
