@@ -58,3 +58,9 @@ export interface ServerItem {
   createdAt: number;
   updatedAt: number;
 }
+
+export interface RefreshResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}

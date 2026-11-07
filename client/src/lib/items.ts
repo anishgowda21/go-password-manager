@@ -1,4 +1,5 @@
-import { ApiError, authFetch, errorMessage } from "./api";
+import { ApiError, errorMessage } from "./api";
+import { authFetch } from "./auth";
 import { fromBase64, toBase64 } from "./base64";
 import { vaultCrypto } from "./crypto";
 import type { ItemData, ServerItem, VaultItem } from "./types";
@@ -45,8 +46,8 @@ async function open(vaultKey: Uint8Array, s: ServerItem): Promise<VaultItem> {
   };
 }
 
-export async function fetchItems(token: string, vaultKey: Uint8Array) {
-  const res = await authFetch("/api/sync", token, "GET");
+export async function fetchItems(vaultKey: Uint8Array) {
+  const res = await authFetch("/api/sync", "GET");
   await ensureOk(res, "Sync Failed");
 
   const body = (await res.json()) as { items: ServerItem[] };
@@ -61,12 +62,11 @@ export async function fetchItems(token: string, vaultKey: Uint8Array) {
 }
 
 export async function createItem(
-  token: string,
   vaultKey: Uint8Array,
   data: ItemData,
 ): Promise<VaultItem> {
   const id = crypto.randomUUID();
-  const res = await authFetch("/api/items", token, "POST", {
+  const res = await authFetch("/api/items", "POST", {
     id,
     blob: await seal(vaultKey, id, data),
   });
@@ -76,12 +76,11 @@ export async function createItem(
 }
 
 export async function updateItem(
-  token: string,
   vaultKey: Uint8Array,
   item: VaultItem,
   data: ItemData,
 ): Promise<VaultItem> {
-  const res = await authFetch(`/api/items/${item.id}`, token, "PUT", {
+  const res = await authFetch(`/api/items/${item.id}`, "PUT", {
     revision: item.revision,
     blob: await seal(vaultKey, item.id, data),
   });
@@ -91,7 +90,7 @@ export async function updateItem(
   return { id: item.id, revision: s.revision, data };
 }
 
-export async function deleteItem(token: string, id: string): Promise<void> {
-  const res = await authFetch(`/api/items/${id}`, token, "DELETE");
+export async function deleteItem(id: string): Promise<void> {
+  const res = await authFetch(`/api/items/${id}`, "DELETE");
   await ensureOk(res, "Could not delete item");
 }

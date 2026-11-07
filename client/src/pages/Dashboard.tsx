@@ -1,19 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router";
 import { useSession } from "../store/session";
-import { ApiError } from "../lib/api";
+import { logOut } from "../lib/auth";
 import { createItem, deleteItem, fetchItems, updateItem } from "../lib/items";
 import ItemDialog from "../components/ItemDialog";
 import type { ItemData, VaultItem } from "../lib/types";
 
-function dropIfUnauthorized(err: unknown) {
-  if (err instanceof ApiError && err.status === 401)
-    useSession.getState().clear();
-}
-
 export default function Dashboard() {
   const email = useSession((s) => s.email);
-  const accessToken = useSession((s) => s.accessToken);
   const vaultKey = useSession((s) => s.vaultKey);
   const items = useSession((s) => s.items);
 
@@ -23,49 +17,38 @@ export default function Dashboard() {
   const [failed, setFailed] = useState(0);
 
   const sync = useCallback(async () => {
-    if (!vaultKey || !accessToken) return;
+    if (!vaultKey) return;
     try {
-      const result = await fetchItems(accessToken, vaultKey);
+      const result = await fetchItems(vaultKey);
       useSession.getState().setItems(result.items);
       setFailed(result.failed);
       setError("");
     } catch (err) {
-      dropIfUnauthorized(err);
       setError(err instanceof Error ? err.message : "Sync failed");
     } finally {
       setLoading(false);
     }
-  }, [accessToken, vaultKey]);
+  }, [vaultKey]);
 
   useEffect(() => {
     void sync();
   }, [sync]);
 
-  if (!vaultKey || !accessToken) return <Navigate to="/login" replace />;
+  if (!vaultKey) return <Navigate to="/login" replace />;
 
   async function handleSave(data: ItemData) {
     const current = dialog?.item ?? null;
-    try {
-      const saved = current
-        ? await updateItem(accessToken, vaultKey!, current, data)
-        : await createItem(accessToken, vaultKey!, data);
-      useSession.getState().upsertItem(saved);
-      setDialog(null);
-    } catch (err) {
-      dropIfUnauthorized(err);
-      throw err;
-    }
+    const saved = current
+      ? await updateItem(vaultKey!, current, data)
+      : await createItem(vaultKey!, data);
+    useSession.getState().upsertItem(saved);
+    setDialog(null);
   }
 
   async function handleDelete(item: VaultItem) {
-    try {
-      await deleteItem(accessToken, item.id);
-      useSession.getState().removeItem(item.id);
-      setDialog(null);
-    } catch (err) {
-      dropIfUnauthorized(err);
-      throw err;
-    }
+    await deleteItem(item.id);
+    useSession.getState().removeItem(item.id);
+    setDialog(null);
   }
 
   const sorted = [...items].sort((a, b) =>
@@ -86,7 +69,7 @@ export default function Dashboard() {
           >
             Sync
           </button>
-          <button onClick={() => useSession.getState().clear()}>Log out</button>
+          <button onClick={() => void logOut()}>Log out</button>
         </div>
       </header>
 

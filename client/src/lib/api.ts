@@ -8,22 +8,6 @@ export class ApiError extends Error {
   }
 }
 
-export function authFetch(
-  path: string,
-  token: string,
-  method: string,
-  body?: unknown,
-): Promise<Response> {
-  return fetch(path, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-}
-
 export function signup(body: SignupRequest): Promise<Response> {
   return fetch("/api/signup", {
     method: "POST",
