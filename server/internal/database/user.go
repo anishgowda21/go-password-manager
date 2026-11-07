@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 	"uuid"
 
 	"modernc.org/sqlite"
@@ -41,7 +40,7 @@ var ErrNotFound = errors.New("not found")
 func CreateUser(ctx context.Context, db *sql.DB, u NewUser) (string, error) {
 	var se *sqlite.Error
 	id := uuid.NewV7().String()
-	now := getUnixTimeStamp(time.Now())
+	now := nowUnix()
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {

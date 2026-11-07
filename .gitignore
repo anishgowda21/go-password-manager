@@ -3,3 +3,4 @@ client/public/crypto.wasm
 client/public/wasm_exec.js
 client/dist/
 vault.db*
+requests/

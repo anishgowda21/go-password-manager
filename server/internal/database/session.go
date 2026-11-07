@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 	"uuid"
 )
 
@@ -19,7 +18,7 @@ type SessionRequest struct {
 
 func CreateSession(ctx context.Context, db *sql.DB, req SessionRequest) (string, error) {
 	id := uuid.NewV7().String()
-	now := getUnixTimeStamp(time.Now())
+	now := nowUnix()
 
 	_, err := db.ExecContext(ctx, `
 		INSERT INTO sessions
@@ -43,7 +42,7 @@ func CreateSession(ctx context.Context, db *sql.DB, req SessionRequest) (string,
 
 func SessionIsActive(ctx context.Context, db *sql.DB, sessionID, userID string) (bool, error) {
 	var one int
-	now := getUnixTimeStamp(time.Now())
+	now := nowUnix()
 	err := db.QueryRowContext(ctx, `
 		SELECT 1 FROM sessions
 		WHERE id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?`,
@@ -52,4 +51,47 @@ func SessionIsActive(ctx context.Context, db *sql.DB, sessionID, userID string) 
 		return false, nil
 	}
 	return err == nil, err
+}
+
+func RotateRefreshToken(ctx context.Context, db *sql.DB, oldHash, newHash string, finish func(sessionID, userID string) error) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var sessionID, userID string
+
+	now := nowUnix()
+
+	err = tx.QueryRowContext(ctx, `
+		UPDATE sessions
+		SET refresh_token_hash = ?, last_used_at = ?
+		WHERE refresh_token_hash = ? AND revoked_at IS NULL AND expires_at > ?
+		RETURNING id, user_id`,
+		newHash, now, oldHash, now,
+	).Scan(&sessionID, &userID)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if err := finish(sessionID, userID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func RevokeByRefreshHash(ctx context.Context, db *sql.DB, hash string) error {
+	now := nowUnix()
+	_, err := db.ExecContext(ctx, `
+		UPDATE sessions SET revoked_at = ?
+		WHERE refresh_token_hash = ? AND revoked_at IS NULL`,
+		now, hash)
+	return err
 }

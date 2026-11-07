@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
-	"time"
 )
 
 var (
@@ -22,7 +21,7 @@ type Item struct {
 }
 
 func CreateItem(ctx context.Context, db *sql.DB, userID, id string, blob []byte) (Item, error) {
-	now := getUnixTimeStamp(time.Now())
+	now := nowUnix()
 	_, err := db.ExecContext(ctx,
 		`INSERT INTO items (user_id, id, blob, revision, created_at, updated_at)
 		 VALUES (?, ?, ?, 1, ?, ?)`,
@@ -58,11 +57,12 @@ func ListItems(ctx context.Context, db *sql.DB, userID string) ([]Item, error) {
 
 func UpdateItem(ctx context.Context, db *sql.DB, userID, id string, revision int, blob []byte) (Item, error) {
 	it := Item{ID: id, Blob: blob}
+	now := nowUnix()
 	err := db.QueryRowContext(ctx,
 		`UPDATE items SET blob = ?, revision = revision + 1, updated_at = ?
 		 WHERE user_id = ? AND id = ? AND revision = ?
 		 RETURNING revision, created_at, updated_at`,
-		blob, time.Now().Unix(), userID, id, revision,
+		blob, now, userID, id, revision,
 	).Scan(&it.Revision, &it.CreatedAt, &it.UpdatedAt)
 
 	//We will get a no rows error when the revision does not match the item does not belong to user
