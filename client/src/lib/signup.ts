@@ -1,11 +1,14 @@
 import { vaultCrypto } from "./crypto";
-import { signup as postSignup } from "./api";
+import { errorMessage, signup as postSignup } from "./api";
 import { toBase64 } from "./base64";
 import { KDF_DEFAULTS, validateKdf } from "./kdf";
-import type { SignupRequest } from "./types";
+import type { AuthResponse, SignupRequest } from "./types";
 import { getDeviceInfo } from "./device";
 
-export async function signUp(email: string, password: string): Promise<void> {
+export async function signUp(
+  email: string,
+  password: string,
+): Promise<{ auth: AuthResponse; vaultKey: Uint8Array }> {
   const kdf = { ...KDF_DEFAULTS };
   validateKdf(kdf);
 
@@ -33,5 +36,7 @@ export async function signUp(email: string, password: string): Promise<void> {
   };
 
   const res = await postSignup(body);
-  console.log("signup status:", res.status);
+  if (!res.ok)
+    throw new Error(await errorMessage(res, "Signup failed, try again"));
+  return { auth: (await res.json()) as AuthResponse, vaultKey };
 }

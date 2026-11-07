@@ -36,3 +36,25 @@ export interface AuthResponse {
   salt: string;
   kdf: KdfPayload;
 }
+
+export interface ItemData {
+  name: string;
+  url: string;
+  username: string;
+  password: string;
+  notes: string;
+}
+
+export interface VaultItem {
+  id: string;
+  revision: number;
+  data: ItemData;
+}
+
+export interface ServerItem {
+  id: string;
+  blob: string;
+  revision: number;
+  createdAt: number;
+  updatedAt: number;
+}

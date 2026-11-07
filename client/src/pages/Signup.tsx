@@ -1,6 +1,7 @@
-import { useState } from "react";
-import type { FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { signUp } from "../lib/signup";
+import { useNavigate } from "react-router";
+import { startSession } from "../store/session";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
@@ -8,8 +9,9 @@ export default function Signup() {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
 
     if (!email || !password) {
@@ -25,7 +27,9 @@ export default function Signup() {
     setError("");
 
     try {
-      await signUp(email, password);
+      const { auth, vaultKey } = await signUp(email, password);
+      startSession(auth, vaultKey, email);
+      navigate("/dashboard");
       setPassword("");
       setConfirm("");
     } catch (err) {

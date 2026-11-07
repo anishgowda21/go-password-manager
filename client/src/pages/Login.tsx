@@ -1,16 +1,18 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
-import { Link } from "react-router";
+import type { SubmitEvent } from "react";
+import { Link, useNavigate } from "react-router";
 import { logIn } from "../lib/login";
+import { getRememberedEmail, startSession } from "../store/session";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(getRememberedEmail());
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [userId, setUserId] = useState("");
+  const navigate = useNavigate();
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!email || !password) {
       setError("Email and password are required");
@@ -21,7 +23,9 @@ export default function Login() {
     setError("");
 
     try {
-      const { auth } = await logIn(email, password);
+      const { auth, vaultKey } = await logIn(email, password);
+      startSession(auth, vaultKey, email);
+      navigate("/dashboard");
       setUserId(auth.userId);
       setPassword("");
     } catch (err) {
