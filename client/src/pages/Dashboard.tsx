@@ -4,7 +4,11 @@ import { useSession } from "../store/session";
 import { logOut } from "../lib/auth";
 import { createItem, deleteItem, fetchItems, updateItem } from "../lib/items";
 import ItemDialog from "../components/ItemDialog";
+import ItemCard from "../components/ItemCard";
 import type { ItemData, VaultItem } from "../lib/types";
+
+const btn =
+  "rounded-md border border-gray-300 px-3 py-1.5 text-sm transition-colors hover:bg-gray-100";
 
 export default function Dashboard() {
   const email = useSession((s) => s.email);
@@ -58,15 +62,20 @@ export default function Dashboard() {
   );
 
   return (
-    <main className="mx-auto max-w-2xl p-4">
-      <header className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">Vault</h1>
-          <Link to="/">Home</Link>
+    <main className="mx-auto max-w-2xl px-4 py-8">
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Vault</h1>
+          <Link to="/" className="text-sm text-gray-500 hover:text-gray-900">
+            Home
+          </Link>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span>{email}</span>
+        <div className="flex items-center gap-2">
+          <span className="mr-1 hidden text-sm text-gray-500 sm:inline">
+            {email}
+          </span>
           <button
+            className={btn}
             onClick={() => {
               setLoading(true);
               void sync();
@@ -74,37 +83,33 @@ export default function Dashboard() {
           >
             Sync
           </button>
-          <button onClick={() => void logOut()}>Log out</button>
-          <button onClick={() => useSession.getState().lock()}>Lock</button>
+          <button className={btn} onClick={() => useSession.getState().lock()}>
+            Lock
+          </button>
+          <button className={btn} onClick={() => void logOut()}>
+            Log out
+          </button>
         </div>
       </header>
 
-      {error && <p className="text-red-600">{error}</p>}
+      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
       {failed > 0 && (
-        <p className="text-amber-700">
+        <p className="mb-3 text-sm text-amber-700">
           {failed} item(s) could not be decrypted.
         </p>
       )}
 
       {loading ? (
-        <p>Loading...</p>
+        <p className="py-12 text-center text-sm text-gray-500">Loading...</p>
       ) : sorted.length === 0 ? (
-        <p>No items yet.</p>
+        <p className="py-12 text-center text-sm text-gray-500">
+          No items yet. Add your first one with the + button.
+        </p>
       ) : (
-        <ul className="divide-y rounded border">
+        <ul className="space-y-2">
           {sorted.map((item) => (
             <li key={item.id}>
-              <button
-                className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                onClick={() => setDialog({ item })}
-              >
-                <div className="font-medium">
-                  {item.data.name || "(no name)"}
-                </div>
-                <div className="text-sm text-gray-600">
-                  {item.data.username}
-                </div>
-              </button>
+              <ItemCard item={item} onClick={() => setDialog({ item })} />
             </li>
           ))}
         </ul>
@@ -112,7 +117,7 @@ export default function Dashboard() {
 
       <button
         aria-label="Add item"
-        className="fixed bottom-6 right-6 h-12 w-12 rounded-full bg-black text-2xl text-white"
+        className="fixed bottom-6 right-6 grid h-12 w-12 place-items-center rounded-full bg-gray-900 text-2xl text-white shadow-md transition-colors hover:bg-black"
         onClick={() => setDialog({ item: null })}
       >
         +

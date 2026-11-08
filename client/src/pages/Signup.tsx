@@ -1,7 +1,12 @@
 import { useState, type SubmitEvent } from "react";
+import { Link, Navigate, useNavigate } from "react-router";
 import { signUp } from "../lib/signup";
-import { Navigate, useNavigate } from "react-router";
 import { homeFor, startSession, useAuthState } from "../store/session";
+
+const input =
+  "w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:border-gray-900";
+const btnPrimary =
+  "w-full rounded-md border border-gray-900 bg-gray-900 px-4 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-60";
 
 export default function Signup() {
   const auth = useAuthState();
@@ -11,6 +16,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+
   if (auth !== "out") return <Navigate to={homeFor(auth)} replace />;
 
   async function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
@@ -32,8 +38,6 @@ export default function Signup() {
       const { auth, vaultKey } = await signUp(email, password);
       startSession(auth, vaultKey, email);
       navigate("/dashboard");
-      setPassword("");
-      setConfirm("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed, try again");
     } finally {
@@ -42,32 +46,50 @@ export default function Signup() {
   }
 
   return (
-    <main>
-      <h1>Sign up</h1>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="Master password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="Confirm master password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? "Creating account..." : "Sign up"}
-        </button>
-      </form>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+    <main className="grid min-h-screen place-items-center px-4">
+      <div className="w-full max-w-sm">
+        <h1 className="mb-6 text-center text-2xl font-semibold tracking-tight">
+          Sign up
+        </h1>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            type="email"
+            placeholder="Email"
+            autoComplete="email"
+            className={input}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Master password"
+            autoComplete="new-password"
+            className={input}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Confirm master password"
+            autoComplete="new-password"
+            className={input}
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+          <button type="submit" disabled={loading} className={btnPrimary}>
+            {loading ? "Creating account..." : "Sign up"}
+          </button>
+        </form>
+
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+        <p className="mt-6 text-center text-sm text-gray-500">
+          <Link to="/login" className="underline hover:text-gray-900">
+            Already have an account? Log in
+          </Link>
+        </p>
+      </div>
     </main>
   );
 }

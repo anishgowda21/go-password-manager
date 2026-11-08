@@ -4,13 +4,17 @@ import { Link, Navigate, useNavigate } from "react-router";
 import { logIn } from "../lib/login";
 import { homeFor, startSession, useAuthState } from "../store/session";
 
+const input =
+  "w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:border-gray-900";
+const btnPrimary =
+  "w-full rounded-md border border-gray-900 bg-gray-900 px-4 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-60";
+
 export default function Login() {
   const auth = useAuthState();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [userId, setUserId] = useState("");
   const navigate = useNavigate();
 
   if (auth !== "out") return <Navigate to={homeFor(auth)} replace />;
@@ -29,38 +33,51 @@ export default function Login() {
       const { auth, vaultKey } = await logIn(email, password);
       startSession(auth, vaultKey, email);
       navigate("/dashboard");
-      setUserId(auth.userId);
-      setPassword("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed, try again");
+      setPassword("");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main>
-      <h1>Log in</h1>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="Master password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? "Logging in..." : "Log in"}
-        </button>
-      </form>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      {userId && <p>Logged in as {userId}</p>}
-      <Link to="/signup">Create an account</Link>
+    <main className="grid min-h-screen place-items-center px-4">
+      <div className="w-full max-w-sm">
+        <h1 className="mb-6 text-center text-2xl font-semibold tracking-tight">
+          Log in
+        </h1>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            type="email"
+            placeholder="Email"
+            autoComplete="email"
+            className={input}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Master password"
+            autoComplete="current-password"
+            className={input}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button type="submit" disabled={loading} className={btnPrimary}>
+            {loading ? "Logging in..." : "Log in"}
+          </button>
+        </form>
+
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+        <p className="mt-6 text-center text-sm text-gray-500">
+          <Link to="/signup" className="underline hover:text-gray-900">
+            Create an account
+          </Link>
+        </p>
+      </div>
     </main>
   );
 }

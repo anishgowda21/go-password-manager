@@ -1,6 +1,8 @@
 import { useState } from "react";
-import type { ChangeEvent, SubmitEvent } from "react";
+import type { SubmitEvent } from "react";
 import type { ItemData, VaultItem } from "../lib/types";
+import Button from "./Button";
+import Field from "./Field";
 
 interface Props {
   item: VaultItem | null;
@@ -17,19 +19,26 @@ const blank: ItemData = {
   notes: "",
 };
 
+const textFields = [
+  { key: "name", label: "Name" },
+  { key: "url", label: "URL" },
+  { key: "username", label: "Username", autoComplete: "off" },
+] as const;
+
 export default function ItemDialog({ item, onClose, onSave, onDelete }: Props) {
   const [data, setData] = useState<ItemData>(item?.data ?? blank);
+  const [editing, setEditing] = useState(item === null);
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  function field(key: keyof ItemData) {
-    return {
-      value: data[key],
-      onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-        setData((d) => ({ ...d, [key]: e.target.value })),
-    };
-  }
+  const set = (key: keyof ItemData) => (value: string) =>
+    setData((d) => ({ ...d, [key]: value }));
+
+  const original = item?.data ?? blank;
+  const dirty = (Object.keys(original) as (keyof ItemData)[]).some(
+    (key) => data[key] !== original[key],
+  );
 
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -44,6 +53,7 @@ export default function ItemDialog({ item, onClose, onSave, onDelete }: Props) {
 
   function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!editing || !dirty) return;
     if (!data.name.trim()) {
       setError("Name is required");
       return;
@@ -56,73 +66,98 @@ export default function ItemDialog({ item, onClose, onSave, onDelete }: Props) {
     void run(() => onDelete(item));
   }
 
-  const input = "mt-1 w-full rounded border p-2";
+  function handleCancelEdit() {
+    if (!item) return onClose();
+    setData(item.data);
+    setError("");
+    setShowPassword(false);
+    setEditing(false);
+  }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-10 grid place-items-center bg-black/40 p-4">
       <form
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-md space-y-3 rounded bg-white p-4"
+        className="w-full max-w-md space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-lg"
         onSubmit={handleSubmit}
       >
-        <h2 className="text-lg font-semibold">
-          {item ? "Edit item" : "New item"}
+        <h2 className="text-xl font-semibold tracking-tight">
+          {!item ? "New item" : editing ? "Edit item" : "Item details"}
         </h2>
 
-        <label className="block text-sm">
-          Name
-          <input className={input} {...field("name")} />
-        </label>
-        <label className="block text-sm">
-          URL
-          <input className={input} {...field("url")} />
-        </label>
-        <label className="block text-sm">
-          Username
-          <input className={input} autoComplete="off" {...field("username")} />
-        </label>
-        <label className="block text-sm">
-          Password
-          <div className="flex gap-2">
-            <input
-              className={input}
-              type={showPassword ? "text" : "password"}
-              autoComplete="new-password"
-              {...field("password")}
-            />
-            <button type="button" onClick={() => setShowPassword((v) => !v)}>
+        {textFields.map(({ key, label, ...rest }) => (
+          <Field
+            key={key}
+            label={label}
+            value={data[key]}
+            onChange={set(key)}
+            readOnly={!editing}
+            {...rest}
+          />
+        ))}
+
+        <Field
+          label="Password"
+          type={showPassword ? "text" : "password"}
+          autoComplete="new-password"
+          value={data.password}
+          onChange={set("password")}
+          readOnly={!editing}
+          action={
+            <Button onClick={() => setShowPassword((v) => !v)}>
               {showPassword ? "Hide" : "Show"}
-            </button>
-          </div>
-        </label>
-        <label className="block text-sm">
-          Notes
-          <textarea className={input} rows={3} {...field("notes")} />
-        </label>
+            </Button>
+          }
+        />
+
+        <Field
+          multiline
+          label="Notes"
+          value={data.notes}
+          onChange={set("notes")}
+          readOnly={!editing}
+        />
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pt-2">
           <div>
-            {item && (
-              <button
-                type="button"
-                disabled={busy}
-                className="text-red-600"
-                onClick={handleDelete}
-              >
+            {item && editing && (
+              <Button variant="danger" disabled={busy} onClick={handleDelete}>
                 Delete
-              </button>
+              </Button>
             )}
           </div>
           <div className="flex gap-2">
-            <button type="button" disabled={busy} onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" disabled={busy}>
-              {busy ? "Saving..." : "Save"}
-            </button>
+            {editing ? (
+              <>
+                <Button key="cancel" disabled={busy} onClick={handleCancelEdit}>
+                  Cancel
+                </Button>
+                <Button
+                  key="save"
+                  type="submit"
+                  variant="primary"
+                  disabled={busy || !dirty}
+                >
+                  {busy ? "Saving..." : "Save"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button key="close" onClick={onClose}>
+                  Close
+                </Button>
+                <Button
+                  key="edit"
+                  variant="primary"
+                  onClick={() => setEditing(true)}
+                >
+                  Edit
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </form>
