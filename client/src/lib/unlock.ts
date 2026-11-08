@@ -13,8 +13,9 @@ export async function unlockVault(password: string): Promise<void> {
   const saltBytes = fromBase64(salt);
   if (saltBytes.length < 16) throw new Error("Stored salt is invalid");
 
+  const pw = password.normalize("NFKC");
   const { encKey } = await vaultCrypto.deriveKeys(
-    password,
+    pw,
     saltBytes,
     kdf.time,
     kdf.memoryKiB,

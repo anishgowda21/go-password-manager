@@ -13,9 +13,9 @@ export async function signUp(
   validateKdf(kdf);
 
   const salt = await vaultCrypto.generateRandomSalt();
-  password.normalize("NFKC");
+  const pw = password.normalize("NFKC");
   const { encKey, authKey } = await vaultCrypto.deriveKeys(
-    password,
+    pw,
     salt,
     kdf.time,
     kdf.memoryKiB,

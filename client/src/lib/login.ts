@@ -28,9 +28,9 @@ export async function logIn(
   const salt = fromBase64(pre.salt);
   if (salt.length < 16) throw new Error("Invalid salt from server");
 
-  password.normalize("NFKC");
+  const pw = password.normalize("NFKC");
   const { encKey, authKey } = await vaultCrypto.deriveKeys(
-    password,
+    pw,
     salt,
     pre.kdf.time,
     pre.kdf.memoryKiB,
