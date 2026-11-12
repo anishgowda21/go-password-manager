@@ -39,4 +39,4 @@ FROM gcr.io/distroless/static:nonroot
 COPY --from=server /out/server /server
 ENV HOST=0.0.0.0 PORT=8090
 EXPOSE 8090
-ENTRYPOINT ["/server"
+ENTRYPOINT ["/server"]
