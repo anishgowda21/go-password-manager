@@ -1,0 +1,5 @@
+client/node_modules
+client/dist
+server/vault.db*
+server/internal/web/dist/*
+.git
