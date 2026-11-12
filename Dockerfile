@@ -4,7 +4,7 @@ WORKDIR /src
 COPY wasm/ ./wasm/
 WORKDIR /src/wasm
 RUN mkdir -p /out && \
-    GOOS=js GOARCH=wasm go build -o /out/main.wasm . && \
+    GOOS=js GOARCH=wasm go build -o /out/crypto.wasm . && \
     if [ -f "$(go env GOROOT)/lib/wasm/wasm_exec.js" ]; then \
     cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" /out/; \
     else \
