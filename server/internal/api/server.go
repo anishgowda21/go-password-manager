@@ -42,7 +42,7 @@ func catchAll(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
-func NewServer(db *sql.DB) *http.ServeMux {
+func NewServer(db *sql.DB) http.Handler {
 	s := &server{db: db}
 	getEnvKeys(s)
 	mux := http.NewServeMux()
@@ -61,5 +61,5 @@ func NewServer(db *sql.DB) *http.ServeMux {
 	mux.HandleFunc("POST /api/refresh", rateLimit(refreshLimit, s.refreshHandler))
 	mux.HandleFunc("POST /api/logout", s.logoutHandler)
 	mux.Handle("/", web.Handler())
-	return mux
+	return securityHeaders(mux)
 }

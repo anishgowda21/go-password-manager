@@ -31,6 +31,10 @@ func Handler() http.Handler {
 		}
 
 		if _, err := fs.Stat(sub, p); err != nil {
+			if path.Ext(p) != "" {
+				http.NotFound(w, r)
+				return
+			}
 			r.URL.Path = "/"
 		}
 

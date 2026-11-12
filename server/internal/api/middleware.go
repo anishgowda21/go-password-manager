@@ -18,6 +18,16 @@ const (
 	ctxSessionID
 )
 
+const csp = "default-src 'self'; " +
+	"script-src 'self' 'wasm-unsafe-eval'; " +
+	"style-src 'self'; " +
+	"img-src 'self' data:; " +
+	"connect-src 'self'; " +
+	"worker-src 'self'; " +
+	"object-src 'none'; " +
+	"base-uri 'none'; " +
+	"form-action 'self'; " +
+	"frame-ancestors 'none'"
 
 func bearerToken(r *http.Request) (string, bool) {
 	const prefix = "bearer "
@@ -79,6 +89,17 @@ func (s *server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		next(w, r.WithContext(ctx))
 
 	}
+}
+
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Content-Security-Policy", csp)
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("Cross-Origin-Opener-Policy", "same-origin")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *server) meHandler(w http.ResponseWriter, r *http.Request) {
