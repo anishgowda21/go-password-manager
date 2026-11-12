@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -205,7 +206,30 @@ func TestLogin_Validation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			env := newTestEnv(t) // fresh server = fresh limiter
 			wantStatus(t, env.do(t, http.MethodPost, "/api/login", "", tc.body), http.StatusBadRequest)
 		})
+	}
+}
+
+func TestLogin_RateLimited(t *testing.T) {
+	env := newTestEnv(t)
+	u := env.registerUser(t)
+
+	attempt := func(authKey string) *httptest.ResponseRecorder {
+		return env.do(t, http.MethodPost, "/api/login", "", map[string]string{
+			"email": u.Email, "authKey": authKey, "deviceId": newUUID(t), "deviceName": "d",
+		})
+	}
+
+	// The login burst is 5, so these all reach the handler and fail normally.
+	for i := 0; i < 5; i++ {
+		wantStatus(t, attempt(randB64(t, 32)), http.StatusUnauthorized)
+	}
+
+	rec := attempt(u.AuthKey)
+	wantError(t, rec, http.StatusTooManyRequests, "too many requests")
+	if rec.Header().Get("Retry-After") == "" {
+		t.Fatal("429 response is missing the Retry-After header")
 	}
 }

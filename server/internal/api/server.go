@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 type server struct {
@@ -45,7 +46,8 @@ func NewServer(db *sql.DB) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/signup", s.signupHandler)
 	mux.HandleFunc("POST /api/prelogin", s.preloginHandler)
-	mux.HandleFunc("POST /api/login", s.loginHandler)
+	loginLimit := newRateLimiter(5, 12*time.Second)
+	mux.HandleFunc("POST /api/login", rateLimit(loginLimit, s.loginHandler))
 	mux.HandleFunc("GET /api/me", s.requireAuth(s.meHandler))
 	mux.HandleFunc("GET /api/sync", s.requireAuth(s.syncHandler))
 	mux.HandleFunc("POST /api/items", s.requireAuth(s.createItemHandler))
