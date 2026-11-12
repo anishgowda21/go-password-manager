@@ -3,6 +3,8 @@ import type { SubmitEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router";
 import { logIn } from "../lib/login";
 import { homeFor, startSession, useAuthState } from "../store/session";
+import { RateLimitError } from "../lib/api";
+import { useCooldown } from "../lib/useCooldown";
 
 const input =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:border-gray-900";
@@ -11,6 +13,7 @@ const btnPrimary =
 
 export default function Login() {
   const auth = useAuthState();
+  const { secondsLeft, start } = useCooldown();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,6 +37,7 @@ export default function Login() {
       startSession(auth, vaultKey, email);
       navigate("/dashboard");
     } catch (err) {
+      if (err instanceof RateLimitError) start(err.retryAfter);
       setError(err instanceof Error ? err.message : "Login failed, try again");
       setPassword("");
     } finally {
@@ -65,8 +69,16 @@ export default function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <button type="submit" disabled={loading} className={btnPrimary}>
-            {loading ? "Logging in..." : "Log in"}
+          <button
+            type="submit"
+            disabled={loading || secondsLeft > 0}
+            className={btnPrimary}
+          >
+            {secondsLeft > 0
+              ? `Try again in ${secondsLeft}s`
+              : loading
+                ? "Logging in..."
+                : "Log in"}
           </button>
         </form>
 

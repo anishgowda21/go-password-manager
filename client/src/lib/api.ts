@@ -8,6 +8,20 @@ export class ApiError extends Error {
   }
 }
 
+export class RateLimitError extends Error {
+  retryAfter: number;
+  constructor(retryAfter: number) {
+    super("Too many attempts, please wait a moment.");
+    this.retryAfter = retryAfter;
+  }
+}
+
+export function throwIfRateLimited(res: Response) {
+  if (res.status !== 429) return;
+  const secs = Number(res.headers.get("Retry-After"));
+  throw new RateLimitError(secs > 0 ? secs : 10); // 10s if header missing
+}
+
 export function signup(body: SignupRequest): Promise<Response> {
   return fetch("/api/signup", {
     method: "POST",
@@ -36,6 +50,12 @@ export async function errorMessage(
   res: Response,
   fallback: string,
 ): Promise<string> {
+  if (res.status === 429) {
+    const secs = Number(res.headers.get("Retry-After"));
+    return secs > 0
+      ? `Too many attempts. Try again in ${secs}s.`
+      : "Too many attempts. Try again shortly.";
+  }
   try {
     const data = await res.json();
     if (typeof data?.error === "string") return data.error;

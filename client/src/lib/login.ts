@@ -1,5 +1,10 @@
 import { vaultCrypto } from "./crypto";
-import { prelogin, login as postLogin, errorMessage } from "./api";
+import {
+  prelogin,
+  login as postLogin,
+  errorMessage,
+  throwIfRateLimited,
+} from "./api";
 import { fromBase64, toBase64 } from "./base64";
 import { validateKdf } from "./kdf";
 import { getDeviceInfo } from "./device";
@@ -12,6 +17,8 @@ export async function logIn(
   const email = rawEmail.trim().toLowerCase();
 
   const preRes = await prelogin(email);
+  throwIfRateLimited(preRes);
+
   if (!preRes.ok)
     throw new Error(await errorMessage(preRes, "Could not start login"));
 
@@ -44,6 +51,7 @@ export async function logIn(
     deviceId,
     deviceName,
   });
+  throwIfRateLimited(res);
   if (!res.ok) throw new Error(await errorMessage(res, "Login failed"));
 
   const auth = (await res.json()) as AuthResponse;

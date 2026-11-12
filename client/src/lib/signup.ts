@@ -1,5 +1,5 @@
 import { vaultCrypto } from "./crypto";
-import { errorMessage, signup as postSignup } from "./api";
+import { errorMessage, signup as postSignup, throwIfRateLimited } from "./api";
 import { toBase64 } from "./base64";
 import { KDF_DEFAULTS, validateKdf } from "./kdf";
 import type { AuthResponse, SignupRequest } from "./types";
@@ -36,6 +36,7 @@ export async function signUp(
   };
 
   const res = await postSignup(body);
+  throwIfRateLimited(res);
   if (!res.ok)
     throw new Error(await errorMessage(res, "Signup failed, try again"));
   return { auth: (await res.json()) as AuthResponse, vaultKey };
