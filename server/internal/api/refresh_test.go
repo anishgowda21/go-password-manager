@@ -170,3 +170,19 @@ func TestRefresh_ConcurrentRequestsOnlyOneWins(t *testing.T) {
 		t.Fatalf("want exactly 1 success and %d rejections, got codes %v", n-1, codes)
 	}
 }
+
+func TestRefresh_RateLimited(t *testing.T) {
+	env := newTestEnv(t)
+
+	// burst is 30
+	for i := 0; i < 30; i++ {
+		wantStatus(t, env.refresh(t, "not-a-real-refresh-token"), http.StatusUnauthorized)
+	}
+
+	// 4th never reaches the handler
+	rec := env.refresh(t, "not-a-real-refresh-token")
+	wantError(t, rec, http.StatusTooManyRequests, "too many requests")
+	if rec.Header().Get("Retry-After") == "" {
+		t.Fatal("429 response is missing the Retry-After header")
+	}
+}

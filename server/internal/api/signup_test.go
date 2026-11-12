@@ -174,6 +174,7 @@ func TestSignup_Validation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			env := newTestEnv(t) // fresh limiter per case
 			body := mergeBody(newSignupBody(t), tc.field, tc.value)
 			wantStatus(t, env.do(t, http.MethodPost, "/api/signup", "", body), http.StatusBadRequest)
 		})
@@ -192,7 +193,6 @@ func TestSignup_Validation(t *testing.T) {
 }
 
 func TestSignup_AcceptsBoundaryValues(t *testing.T) {
-	env := newTestEnv(t)
 
 	tests := []struct {
 		name  string
@@ -207,6 +207,7 @@ func TestSignup_AcceptsBoundaryValues(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			env := newTestEnv(t)
 			body := mergeBody(newSignupBody(t), tc.field, tc.value)
 			wantStatus(t, env.do(t, http.MethodPost, "/api/signup", "", body), http.StatusCreated)
 		})
@@ -295,4 +296,17 @@ func TestSignup_StoresTheRightThings(t *testing.T) {
 			t.Fatal("a fresh session must not be revoked")
 		}
 	})
+}
+
+func TestSignup_RateLimited(t *testing.T) {
+	env := newTestEnv(t)
+
+	// burst is 3: these reach the handler and fail validation with 400
+	for i := 0; i < 3; i++ {
+		wantStatus(t, env.do(t, http.MethodPost, "/api/signup", "", "{}"), http.StatusBadRequest)
+	}
+
+	// 4th never reaches the handler
+	rec := env.do(t, http.MethodPost, "/api/signup", "", "{}")
+	wantError(t, rec, http.StatusTooManyRequests, "too many requests")
 }
