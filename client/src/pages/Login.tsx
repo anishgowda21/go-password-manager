@@ -4,7 +4,7 @@ import { Link, Navigate, useNavigate } from "react-router";
 import { logIn } from "../lib/login";
 import { homeFor, startSession, useAuthState } from "../store/session";
 import { RateLimitError } from "../lib/api";
-import { useCooldown } from "../lib/useCooldown";
+import { formatSeconds, useCooldown } from "../lib/useCooldown";
 
 const input =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:border-gray-900";
@@ -75,7 +75,7 @@ export default function Login() {
             className={btnPrimary}
           >
             {secondsLeft > 0
-              ? `Try again in ${secondsLeft}s`
+              ? `Try again in ${formatSeconds(secondsLeft)}`
               : loading
                 ? "Logging in..."
                 : "Log in"}

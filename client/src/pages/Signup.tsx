@@ -2,7 +2,7 @@ import { useState, type SubmitEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router";
 import { signUp } from "../lib/signup";
 import { homeFor, startSession, useAuthState } from "../store/session";
-import { useCooldown } from "../lib/useCooldown";
+import { formatSeconds, useCooldown } from "../lib/useCooldown";
 import { RateLimitError } from "../lib/api";
 
 const input =
@@ -87,7 +87,7 @@ export default function Signup() {
             className={btnPrimary}
           >
             {secondsLeft > 0
-              ? `Try again in ${secondsLeft}s`
+              ? `Try again in ${formatSeconds(secondsLeft)}`
               : loading
                 ? "Creating account..."
                 : "Sign up"}

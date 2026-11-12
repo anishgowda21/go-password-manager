@@ -4,3 +4,5 @@ client/public/wasm_exec.js
 client/dist/
 vault.db*
 requests/
+server/internal/web/dist/*
+!server/internal/web/dist/.gitkeep

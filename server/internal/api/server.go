@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"gitlab.com/anishgowda21/go-password-manager/server/internal/web"
 )
 
 type server struct {
@@ -58,6 +60,6 @@ func NewServer(db *sql.DB) *http.ServeMux {
 	refreshLimit := newRateLimiter(30, 2*time.Second)
 	mux.HandleFunc("POST /api/refresh", rateLimit(refreshLimit, s.refreshHandler))
 	mux.HandleFunc("POST /api/logout", s.logoutHandler)
-	mux.HandleFunc("/", catchAll)
+	mux.Handle("/", web.Handler())
 	return mux
 }
