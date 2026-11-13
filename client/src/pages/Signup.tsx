@@ -4,6 +4,7 @@ import { signUp } from "../lib/signup";
 import { homeFor, startSession, useAuthState } from "../store/session";
 import { formatSeconds, useCooldown } from "../lib/useCooldown";
 import { RateLimitError } from "../lib/api";
+import DemoBanner from "../components/DemoBanner";
 
 const input =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:border-gray-900";
@@ -52,6 +53,7 @@ export default function Signup() {
   return (
     <main className="grid min-h-screen place-items-center px-4">
       <div className="w-full max-w-sm">
+        <DemoBanner />
         <h1 className="mb-6 text-center text-2xl font-semibold tracking-tight">
           Sign up
         </h1>
