@@ -7,7 +7,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/mail"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -70,4 +72,14 @@ func validateDevice(id, name string) (string, error) {
 func userIDFrom(ctx context.Context) string {
 	id, _ := ctx.Value(ctxUserID).(string)
 	return id
+}
+
+// trustedHops is how many proxies sit in front of the app and append to
+// X-Forwarded-For. 0 means no proxy
+func hopsFromEnv() int {
+	n, err := strconv.Atoi(os.Getenv("TRUSTED_PROXY_HOPS"))
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
 }

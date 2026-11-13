@@ -4,10 +4,14 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
+
+var trustedHops = hopsFromEnv()
 
 // Whole limiter for one route
 type rateLimiter struct {
@@ -81,11 +85,46 @@ func (l *rateLimiter) sweep(now time.Time) {
 }
 
 func clientIP(r *http.Request) string {
+	if trustedHops > 0 {
+		header := strings.Join(r.Header.Values("X-Forwarded-For"), ",")
+		if ip, ok := forwardedIP(header, trustedHops); ok {
+			return limiterKey(ip)
+		}
+	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
+	}
+	if ip, err := netip.ParseAddr(host); err == nil {
+		return limiterKey(ip)
 	}
 	return host
+}
+
+// forwardedIP counts hops from the RIGHT of X-Forwarded-For, because the
+// proxies we trust append there. Anything further left is client-controlled.
+func forwardedIP(header string, hops int) (netip.Addr, bool) {
+	parts := strings.Split(header, ",")
+	if len(parts) < hops {
+		return netip.Addr{}, false
+	}
+	ip, err := netip.ParseAddr(strings.TrimSpace(parts[len(parts)-hops]))
+	if err != nil {
+		return netip.Addr{}, false
+	}
+	return ip, true
+}
+
+// limiterKey turns an address into the bucket key. IPv6 clients are grouped
+// by /64, since one connection usually owns a whole /64 and could otherwise
+// rotate addresses to get a fresh bucket every request.
+func limiterKey(ip netip.Addr) string {
+	ip = ip.Unmap().WithZone("")
+	if ip.Is6() {
+		p, _ := ip.Prefix(64)
+		return p.String()
+	}
+	return ip.String()
 }
 
 func rateLimit(l *rateLimiter, next http.HandlerFunc) http.HandlerFunc {

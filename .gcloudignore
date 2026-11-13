@@ -1,0 +1,10 @@
+client/public/crypto.wasm
+client/public/wasm_exec.js
+client/node_modules
+client/dist
+server/vault.db*
+server/internal/web/dist/*
+.git
+requests/
+.DS_Store
+
